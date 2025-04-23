@@ -1,0 +1,21 @@
+{
+  "name": "lcd1602-vumeter",
+  "version": "1.0.0",
+  "description": "Stereo VU Meter plugin for 1602 I2C LCD on Volumio",
+  "main": "index.js",
+  "author": "Just a Nerd / Lord Andrew",
+  "license": "MIT",
+  "volumio_info": {
+    "prettyName": "LCD1602 VU Meter",
+    "icon": "fa-chart-bar",
+    "plugin_type": "system_controller",
+    "screenshots": []
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "dependencies": {
+    "fs-extra": "^10.0.0",
+    "child_process": "^1.0.2"
+  }
+}

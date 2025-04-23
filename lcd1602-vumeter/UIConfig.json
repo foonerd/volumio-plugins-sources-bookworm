@@ -1,0 +1,42 @@
+{
+  "pages": [
+    {
+      "id": "main",
+      "label": "VU Meter Settings",
+      "elements": [
+        {
+          "id": "i2cAddress",
+          "type": "text",
+          "label": "I2C Address",
+          "value": "0x27",
+          "tooltip": "Set the I2C address of your LCD1602 (default is 0x27)"
+        },
+        {
+          "id": "refreshRate",
+          "type": "number",
+          "label": "Refresh Rate (ms)",
+          "value": 100,
+          "tooltip": "Time between volume reads (lower = more responsive)"
+        },
+        {
+          "id": "orientation",
+          "type": "select",
+          "label": "Bar Orientation",
+          "options": [
+            { "value": "horizontal", "label": "Horizontal" },
+            { "value": "vertical", "label": "Vertical (Not Yet Supported)" }
+          ],
+          "value": "horizontal",
+          "tooltip": "Display bar layout (vertical mode coming soon)"
+        },
+        {
+          "id": "enabled",
+          "type": "switch",
+          "label": "Enable Plugin",
+          "value": true,
+          "tooltip": "Toggle to enable or disable VU Meter output"
+        }
+      ]
+    }
+  ]
+}
