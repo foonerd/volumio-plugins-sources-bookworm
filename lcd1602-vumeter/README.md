@@ -6,7 +6,7 @@ This plugin displays real-time stereo volume levels on a 1602 I2C LCD screen usi
 
 - Volumio running on Raspberry Pi
 - LCD1602 display with I2C backpack (e.g. PCF8574)
-- I2C enabled on Raspberry Pi (`sudo raspi-config`)
+- I2C enabled on Raspberry Pi (Volumio - enabled by default)
 - Python 3 installed
 
 ## Installation
@@ -37,6 +37,7 @@ This installs required Python libraries and system packages.
 
 To remove the plugin:
 
+Use UI or
 ```bash
 ./uninstall.sh
 rm -rf /data/plugins/system_controller/lcd1602-vumeter
