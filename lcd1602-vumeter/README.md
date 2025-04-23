@@ -14,7 +14,6 @@ This plugin displays real-time stereo volume levels on a 1602 I2C LCD screen usi
 ### 1. Clone the Plugin
 
 ```bash
-cd /data/plugins/system_controller
 git clone https://github.com/foonerd/volumio-plugins-sources-bookworm.git
 cd volumio-plugins-sources-bookworm/lcd1602-vumeter
 ```
@@ -22,7 +21,7 @@ cd volumio-plugins-sources-bookworm/lcd1602-vumeter
 ### 2. Run the Install Script
 
 ```bash
-./install.sh
+volumio plugin install
 ```
 
 This installs required Python libraries and system packages.
