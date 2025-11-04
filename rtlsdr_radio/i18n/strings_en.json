@@ -1,0 +1,17 @@
+{
+  "PLUGIN_NAME": "FM/DAB Radio",
+  "PLUGIN_DESCRIPTION": "Receive FM and DAB/DAB+ radio using RTL-SDR USB tuners",
+  "RADIO_SETTINGS": "Radio Settings",
+  "ENABLE_FM": "Enable FM Radio",
+  "ENABLE_DAB": "Enable DAB/DAB+ Radio",
+  "FM_GAIN": "FM Gain",
+  "DAB_GAIN": "DAB Gain",
+  "SCAN_FM": "Scan FM Stations",
+  "SCAN_DAB": "Scan DAB Stations",
+  "SCANNING": "Station Scanning",
+  "SCAN_IN_PROGRESS": "Scanning in progress...",
+  "SCAN_COMPLETE": "Scan complete",
+  "NO_DEVICE": "No RTL-SDR device detected",
+  "SAVE_SUCCESS": "Settings saved successfully",
+  "SAVE_ERROR": "Failed to save settings"
+}
