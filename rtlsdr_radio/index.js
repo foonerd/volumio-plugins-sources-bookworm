@@ -90,13 +90,12 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
     radioSettings.content[2].value = self.config.get('fm_gain', 50);
     radioSettings.content[3].value = self.config.get('dab_gain', 80);
     
-    // Add current values to save button data
-    radioSettings.saveButton.data = [
-      'fm_enabled',
-      'dab_enabled',
-      'fm_gain',
-      'dab_gain'
-    ];
+    // Populate scan sensitivity dropdown (content[4])
+    var scanSensitivity = self.config.get('scan_sensitivity', 8);
+    radioSettings.content[4].value = {
+      value: scanSensitivity,
+      label: self.getSensitivityLabel(scanSensitivity)
+    };
     
     // Populate manual playback with saved frequency
     var manualPlayback = uiconf.sections[1];
@@ -109,6 +108,17 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
   });
   
   return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.getSensitivityLabel = function(value) {
+  var labels = {
+    15: 'Conservative (+15 dB) - Very strong signals only',
+    10: 'Moderate (+10 dB) - Strong signals',
+    8: 'Balanced (+8 dB) - Good signals (recommended)',
+    5: 'Sensitive (+5 dB) - All reasonable signals',
+    3: 'Very Sensitive (+3 dB) - Weaker signals, may include noise'
+  };
+  return labels[value] || labels[8];
 };
 
 ControllerRtlsdrRadio.prototype.loadAlsaLoopback = function() {
@@ -158,20 +168,86 @@ ControllerRtlsdrRadio.prototype.handleBrowseUri = function(curUri) {
   
   self.logger.info('[RTL-SDR Radio] Browse URI: ' + curUri);
   
+  // Handle rescan trigger
+  if (curUri === 'rtlsdr://rescan') {
+    self.scanFm()
+      .then(function() {
+        // Return to main browse view after scan
+        return self.handleBrowseUri('rtlsdr');
+      })
+      .then(function(response) {
+        defer.resolve(response);
+      })
+      .fail(function(e) {
+        self.logger.error('[RTL-SDR Radio] Rescan failed: ' + e);
+        defer.reject(e);
+      });
+    return defer.promise;
+  }
+  
+  // Build FM station list
+  var fmItems = [];
+  if (self.stationsDb.fm && self.stationsDb.fm.length > 0) {
+    fmItems = self.stationsDb.fm.map(function(station) {
+      return {
+        service: 'rtlsdr_radio',
+        type: 'song',
+        title: station.name,
+        artist: station.frequency + ' MHz',
+        album: 'FM Radio',
+        albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/icon.png',
+        uri: 'rtlsdr://fm/' + station.frequency
+      };
+    });
+  } else {
+    // No stations - show scan prompt
+    fmItems.push({
+      service: 'rtlsdr_radio',
+      type: 'streaming-category',
+      title: 'No stations found',
+      artist: 'Click Rescan to search for FM stations',
+      album: '',
+      icon: 'fa fa-info-circle',
+      uri: ''
+    });
+  }
+  
+  // Add rescan option at the end
+  fmItems.push({
+    service: 'rtlsdr_radio',
+    type: 'streaming-category',
+    title: 'Rescan Stations',
+    artist: 'Scan for FM stations (takes ~10 seconds)',
+    album: '',
+    icon: 'fa fa-refresh',
+    uri: 'rtlsdr://rescan'
+  });
+  
+  // Build DAB station list (placeholder for now)
+  var dabItems = [{
+    service: 'rtlsdr_radio',
+    type: 'streaming-category',
+    title: 'DAB+ coming soon',
+    artist: 'DAB+ support will be added in future update',
+    album: '',
+    icon: 'fa fa-info-circle',
+    uri: ''
+  }];
+  
   var response = {
     navigation: {
       lists: [
         {
-          title: 'FM Radio',
+          title: 'FM Radio (' + (self.stationsDb.fm ? self.stationsDb.fm.length : 0) + ' stations)',
           icon: 'fa fa-signal',
           availableListViews: ['list'],
-          items: []
+          items: fmItems
         },
         {
           title: 'DAB Radio',
           icon: 'fa fa-broadcast-tower',
           availableListViews: ['list'],
-          items: []
+          items: dabItems
         }
       ]
     }
@@ -229,6 +305,22 @@ ControllerRtlsdrRadio.prototype.playFmStation = function(frequency, stationName)
     return defer.promise;
   }
   
+  // If decoder is still running, wait for cleanup to complete
+  if (self.decoderProcess !== null) {
+    self.logger.info('[RTL-SDR Radio] Waiting for previous station cleanup...');
+    setTimeout(function() {
+      self.startFmPlayback(freq, stationName, defer);
+    }, 600); // Wait slightly longer than stopDecoder timeout (500ms)
+  } else {
+    self.startFmPlayback(freq, stationName, defer);
+  }
+  
+  return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.startFmPlayback = function(freq, stationName, defer) {
+  var self = this;
+  
   // Get gain from config
   var gain = self.config.get('fm_gain', 50);
   
@@ -256,7 +348,7 @@ ControllerRtlsdrRadio.prototype.playFmStation = function(frequency, stationName)
   
   // Store current station for resume
   self.currentStation = {
-    uri: 'rtlsdr://fm/' + frequency,
+    uri: 'rtlsdr://fm/' + freq,
     name: stationName,
     service: 'rtlsdr_radio'
   };
@@ -270,35 +362,55 @@ ControllerRtlsdrRadio.prototype.playFmStation = function(frequency, stationName)
     title: stationName,
     artist: 'FM ' + freq + ' MHz',
     album: 'FM Radio',
-    uri: 'rtlsdr://fm/' + frequency,
+    uri: 'rtlsdr://fm/' + freq,
     trackType: 'fm',
     samplerate: '48 KHz',
     bitdepth: '16 bit',
     channels: 1,
     duration: 0,
-    seek: 0,
-    volatile: false
+    seek: 0
   };
+  
+  // Clear state to force state machine recognition of change
+  // This mimics the stop() function behavior to ensure UI update
+  self.commandRouter.stateMachine.setVolatile({
+    service: 'rtlsdr_radio',
+    status: 'stop',
+    title: '',
+    artist: '',
+    album: '',
+    uri: ''
+  });
   
   self.commandRouter.servicePushState(state, 'rtlsdr_radio');
   
+  // Force state machine update to trigger UI refresh
+  // This ensures "Received an update from plugin" event fires
+  setTimeout(function() {
+    self.commandRouter.stateMachine.pushState(state);
+  }, 500);
+  
   defer.resolve();
-  return defer.promise;
 };
 
 ControllerRtlsdrRadio.prototype.stop = function() {
   var self = this;
-  
   self.stopDecoder();
-  
   // Get current state and just change status to pause
   // Keep all track info for resume
   var currentState = self.commandRouter.stateMachine.getState();
   currentState.status = 'pause';
-  
   self.commandRouter.servicePushState(currentState, 'rtlsdr_radio');
   self.commandRouter.stateMachine.setConsumeUpdateService('');
-  
+  // Push stopped state to UI
+  self.commandRouter.stateMachine.setVolatile({
+    service: 'rtlsdr_radio',
+    status: 'pause',
+    title: '',
+    artist: '',
+    album: '',
+    uri: ''
+  });
   return libQ.resolve();
 };
 
@@ -319,11 +431,9 @@ ControllerRtlsdrRadio.prototype.resume = function() {
 
 ControllerRtlsdrRadio.prototype.stopDecoder = function() {
   var self = this;
-  
   if (self.decoderProcess !== null) {
     self.logger.info('[RTL-SDR Radio] Stopping decoder process');
     self.intentionalStop = true;
-    
     try {
       exec('sudo pkill -f "rtl_fm -f"');
       exec('sudo pkill -f "aplay -D volumio"');
@@ -331,7 +441,6 @@ ControllerRtlsdrRadio.prototype.stopDecoder = function() {
     } catch (e) {
       self.logger.error('[RTL-SDR Radio] Error stopping decoder: ' + e);
     }
-    
     // Wait for processes to fully terminate
     setTimeout(function() {
       self.decoderProcess = null;
@@ -404,6 +513,15 @@ ControllerRtlsdrRadio.prototype.saveConfig = function(data) {
       self.config.set('dab_gain', dabGain);
     }
   }
+  if (data.scan_sensitivity !== undefined) {
+    // Dropdown sends {value: X, label: "..."} object, extract value
+    var sensitivityValue = data.scan_sensitivity.value || data.scan_sensitivity;
+    var sensitivity = parseInt(sensitivityValue);
+    if (!isNaN(sensitivity)) {
+      self.config.set('scan_sensitivity', sensitivity);
+      self.logger.info('[RTL-SDR Radio] Scan sensitivity set to +' + sensitivity + ' dB');
+    }
+  }
   
   self.commandRouter.pushToastMessage('success', 'FM/DAB Radio', 'Configuration saved');
   defer.resolve();
@@ -441,4 +559,198 @@ ControllerRtlsdrRadio.prototype.saveStations = function() {
   } catch (e) {
     self.logger.error('[RTL-SDR Radio] Failed to save stations: ' + e);
   }
+};
+
+// FM SCANNING METHODS - Phase 3 Implementation
+// ============================================
+
+ControllerRtlsdrRadio.prototype.scanFm = function() {
+  var self = this;
+  var defer = libQ.defer();
+  
+  self.logger.info('[RTL-SDR Radio] Starting FM scan...');
+  self.commandRouter.pushToastMessage('info', 'FM Radio', 'Scanning for stations (takes ~10 seconds)...');
+  
+  // Generate unique temp file name
+  var scanFile = '/tmp/fm_scan_' + Date.now() + '.csv';
+  
+  // rtl_power command:
+  // -f 88M:108M:125k = Scan 88-108 MHz in 125kHz steps (160 bins)
+  // -i 10 = Integrate for 10 seconds
+  // -1 = Single-shot mode (exit after one scan)
+  var command = 'rtl_power -f 88M:108M:125k -i 10 -1 ' + scanFile;
+  
+  self.logger.info('[RTL-SDR Radio] Scan command: ' + command);
+  
+  exec(command, { timeout: 30000 }, function(error, stdout, stderr) {
+    if (error) {
+      self.logger.error('[RTL-SDR Radio] Scan failed: ' + error);
+      self.commandRouter.pushToastMessage('error', 'FM Radio', 'Scan failed: ' + error.message);
+      defer.reject(error);
+      return;
+    }
+    
+    self.logger.info('[RTL-SDR Radio] Scan complete, parsing results...');
+    
+    // Parse scan results
+    self.parseScanResults(scanFile)
+      .then(function(stations) {
+        self.logger.info('[RTL-SDR Radio] Found ' + stations.length + ' FM stations');
+        
+        // Save to database
+        self.stationsDb.fm = stations;
+        self.saveStations();
+        
+        self.commandRouter.pushToastMessage('success', 'FM Radio', 
+          'Found ' + stations.length + ' stations');
+        
+        defer.resolve(stations);
+      })
+      .fail(function(e) {
+        self.logger.error('[RTL-SDR Radio] Failed to parse scan results: ' + e);
+        self.commandRouter.pushToastMessage('error', 'FM Radio', 'Failed to parse results');
+        defer.reject(e);
+      });
+  });
+  
+  return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.parseScanResults = function(scanFile) {
+  var self = this;
+  var defer = libQ.defer();
+  
+  fs.readFile(scanFile, 'utf8', function(err, data) {
+    if (err) {
+      self.logger.error('[RTL-SDR Radio] Failed to read scan file: ' + err);
+      defer.reject(err);
+      return;
+    }
+    
+    try {
+      var lines = data.trim().split('\n');
+      if (lines.length === 0) {
+        self.logger.error('[RTL-SDR Radio] Empty scan file');
+        defer.reject(new Error('Empty scan file'));
+        return;
+      }
+      
+      self.logger.info('[RTL-SDR Radio] Processing ' + lines.length + ' frequency hops');
+      
+      // Build frequency map by combining all hops
+      var freqMap = {}; // frequency -> power
+      
+      // Process each line (frequency hop)
+      for (var lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+        var line = lines[lineIdx];
+        var values = line.split(',').map(function(v) { return v.trim(); });
+        
+        // CSV format: date, time, Hz_low, Hz_high, Hz_step, samples, dBm_values...
+        if (values.length < 7) {
+          continue; // Skip invalid lines
+        }
+        
+        var startFreq = parseFloat(values[2]) / 1000000; // Hz to MHz
+        var step = parseFloat(values[4]) / 1000000;
+        
+        // Extract power values (skip first 6 metadata fields)
+        var powerValues = values.slice(6);
+        
+        // Map each bin to its frequency
+        for (var i = 0; i < powerValues.length; i++) {
+          var power = parseFloat(powerValues[i]);
+          
+          // Skip NaN values
+          if (isNaN(power)) {
+            continue;
+          }
+          
+          var freq = startFreq + (i * step);
+          var freqKey = freq.toFixed(6); // Use high precision key
+          
+          // Store power value for this frequency
+          freqMap[freqKey] = power;
+        }
+      }
+      
+      // Convert frequency map to sorted array
+      var freqArray = [];
+      for (var freqKey in freqMap) {
+        freqArray.push({
+          freq: parseFloat(freqKey),
+          power: freqMap[freqKey]
+        });
+      }
+      
+      // Sort by frequency
+      freqArray.sort(function(a, b) {
+        return a.freq - b.freq;
+      });
+      
+      if (freqArray.length === 0) {
+        self.logger.error('[RTL-SDR Radio] No valid power values found');
+        defer.reject(new Error('No valid data'));
+        return;
+      }
+      
+      self.logger.info('[RTL-SDR Radio] Combined spectrum: ' + freqArray.length + ' valid bins');
+      
+      // Calculate average power for threshold (skip NaN already filtered)
+      var sum = 0;
+      for (var i = 0; i < freqArray.length; i++) {
+        sum += freqArray[i].power;
+      }
+      var avgPower = sum / freqArray.length;
+      
+      // Get threshold from config (default: +8 dB for balanced detection)
+      var thresholdOffset = self.config.get('scan_sensitivity', 8);
+      var threshold = avgPower + thresholdOffset;
+      
+      self.logger.info('[RTL-SDR Radio] Average power: ' + avgPower.toFixed(1) + 
+                      ' dBm, threshold: ' + threshold.toFixed(1) + ' dBm (+' + thresholdOffset + ' dB)');
+      
+      // Find peaks (local maxima above threshold)
+      var stations = [];
+      for (var i = 1; i < freqArray.length - 1; i++) {
+        var current = freqArray[i];
+        var prev = freqArray[i - 1];
+        var next = freqArray[i + 1];
+        
+        // Check if this is a peak above threshold
+        if (current.power > threshold && 
+            current.power > prev.power && 
+            current.power > next.power) {
+          
+          // Round to nearest 0.1 MHz for display
+          var freqRounded = Math.round(current.freq * 10) / 10;
+          
+          stations.push({
+            frequency: freqRounded.toFixed(1),
+            name: 'FM ' + freqRounded.toFixed(1),
+            signal_strength: current.power.toFixed(1),
+            last_seen: new Date().toISOString()
+          });
+          
+          self.logger.info('[RTL-SDR Radio] Found station: ' + freqRounded.toFixed(1) + 
+                          ' MHz (' + current.power.toFixed(1) + ' dBm)');
+        }
+      }
+      
+      // Sort stations by frequency
+      stations.sort(function(a, b) {
+        return parseFloat(a.frequency) - parseFloat(b.frequency);
+      });
+      
+      // Cleanup temp file
+      fs.unlink(scanFile, function() {});
+      
+      defer.resolve(stations);
+      
+    } catch (e) {
+      self.logger.error('[RTL-SDR Radio] Error parsing scan data: ' + e);
+      defer.reject(e);
+    }
+  });
+  
+  return defer.promise;
 };

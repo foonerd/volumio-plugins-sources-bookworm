@@ -19,6 +19,10 @@
     "type": "number",
     "value": 80
   },
+  "scan_sensitivity": {
+    "type": "number",
+    "value": 8
+  },
   "sample_rate": {
     "type": "number",
     "value": 48000

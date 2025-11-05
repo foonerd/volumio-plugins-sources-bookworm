@@ -15,7 +15,13 @@
       },
       "saveButton": {
         "label": "Save",
-        "data": []
+        "data": [
+          "fm_enabled",
+          "dab_enabled",
+          "fm_gain",
+          "dab_gain",
+          "scan_sensitivity"
+        ]
       },
       "content": [
         {
@@ -45,6 +51,38 @@
           "label": "DAB Gain",
           "value": 80,
           "doc": "RTL-SDR gain for DAB reception (0-100)"
+        },
+        {
+          "id": "scan_sensitivity",
+          "element": "select",
+          "label": "FM Scan Sensitivity",
+          "value": {
+            "value": 8,
+            "label": "Balanced (+8 dB) - Good signals (recommended)"
+          },
+          "options": [
+            {
+              "value": 15,
+              "label": "Conservative (+15 dB) - Very strong signals only"
+            },
+            {
+              "value": 10,
+              "label": "Moderate (+10 dB) - Strong signals"
+            },
+            {
+              "value": 8,
+              "label": "Balanced (+8 dB) - Good signals (recommended)"
+            },
+            {
+              "value": 5,
+              "label": "Sensitive (+5 dB) - All reasonable signals"
+            },
+            {
+              "value": 3,
+              "label": "Very Sensitive (+3 dB) - Weaker signals, may include noise"
+            }
+          ],
+          "doc": "How sensitive the FM scanner should be when detecting stations. Higher values find only the strongest signals, lower values find more stations but may include noise."
         }
       ]
     },
