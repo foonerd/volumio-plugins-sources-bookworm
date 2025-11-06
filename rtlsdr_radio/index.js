@@ -185,6 +185,23 @@ ControllerRtlsdrRadio.prototype.handleBrowseUri = function(curUri) {
     return defer.promise;
   }
   
+  // Handle DAB rescan trigger
+  if (curUri === 'rtlsdr://rescan-dab') {
+    self.scanDab()
+      .then(function() {
+        // Return to main browse view after scan
+        return self.handleBrowseUri('rtlsdr');
+      })
+      .then(function(response) {
+        defer.resolve(response);
+      })
+      .fail(function(e) {
+        self.logger.error('[RTL-SDR Radio] DAB rescan failed: ' + e);
+        defer.reject(e);
+      });
+    return defer.promise;
+  }
+  
   // Build FM station list
   var fmItems = [];
   if (self.stationsDb.fm && self.stationsDb.fm.length > 0) {
@@ -223,16 +240,45 @@ ControllerRtlsdrRadio.prototype.handleBrowseUri = function(curUri) {
     uri: 'rtlsdr://rescan'
   });
   
-  // Build DAB station list (placeholder for now)
-  var dabItems = [{
+  // Build DAB station list
+  var dabItems = [];
+  
+  if (self.stationsDb.dab && self.stationsDb.dab.length > 0) {
+    // Add DAB stations
+    self.stationsDb.dab.forEach(function(station) {
+      dabItems.push({
+        service: 'rtlsdr_radio',
+        type: 'webradio',
+        title: station.name,                           // Display name (trimmed)
+        artist: station.ensemble,
+        album: 'Channel ' + station.channel,
+        icon: 'fa fa-broadcast-tower',
+        uri: 'rtlsdr://dab/' + station.channel + '/' + encodeURIComponent(station.exactName)  // Use exactName with spaces
+      });
+    });
+  } else {
+    // No stations - show scan prompt
+    dabItems.push({
+      service: 'rtlsdr_radio',
+      type: 'streaming-category',
+      title: 'No DAB stations found',
+      artist: 'Click Rescan to search for DAB stations',
+      album: '',
+      icon: 'fa fa-info-circle',
+      uri: ''
+    });
+  }
+  
+  // Add rescan option at the end
+  dabItems.push({
     service: 'rtlsdr_radio',
     type: 'streaming-category',
-    title: 'DAB+ coming soon',
-    artist: 'DAB+ support will be added in future update',
+    title: 'Rescan DAB Stations',
+    artist: 'Scan for DAB stations (takes ~30-60 seconds)',
     album: '',
-    icon: 'fa fa-info-circle',
-    uri: ''
-  }];
+    icon: 'fa fa-refresh',
+    uri: 'rtlsdr://rescan-dab'
+  });
   
   var response = {
     navigation: {
@@ -244,7 +290,7 @@ ControllerRtlsdrRadio.prototype.handleBrowseUri = function(curUri) {
           items: fmItems
         },
         {
-          title: 'DAB Radio',
+          title: 'DAB Radio (' + (self.stationsDb.dab ? self.stationsDb.dab.length : 0) + ' services)',
           icon: 'fa fa-broadcast-tower',
           availableListViews: ['list'],
           items: dabItems
@@ -279,10 +325,26 @@ ControllerRtlsdrRadio.prototype.clearAddPlayTrack = function(track) {
         defer.reject(e);
       });
   } else if (track.uri && track.uri.indexOf('rtlsdr://dab/') === 0) {
-    // DAB playback (not implemented yet)
-    self.logger.info('[RTL-SDR Radio] DAB playback not yet implemented');
-    self.commandRouter.pushToastMessage('info', 'FM/DAB Radio', 'DAB playback coming soon');
-    defer.reject(new Error('DAB not implemented'));
+    // DAB playback - parse URI: rtlsdr://dab/<channel>/<serviceName>
+    var dabParts = track.uri.replace('rtlsdr://dab/', '').split('/');
+    if (dabParts.length < 2) {
+      self.logger.error('[RTL-SDR Radio] Invalid DAB URI: ' + track.uri);
+      defer.reject(new Error('Invalid DAB URI'));
+      return defer.promise;
+    }
+    
+    var channel = dabParts[0];
+    var serviceName = decodeURIComponent(dabParts[1]);
+    
+    self.playDabStation(channel, serviceName, track.title || serviceName)
+      .then(function() {
+        defer.resolve();
+      })
+      .fail(function(e) {
+        self.logger.error('[RTL-SDR Radio] DAB playback failed: ' + e);
+        self.commandRouter.pushToastMessage('error', 'DAB Radio', 'Failed to play station: ' + e);
+        defer.reject(e);
+      });
   } else {
     self.logger.error('[RTL-SDR Radio] Invalid URI: ' + track.uri);
     defer.reject(new Error('Invalid URI'));
@@ -435,8 +497,11 @@ ControllerRtlsdrRadio.prototype.stopDecoder = function() {
     self.logger.info('[RTL-SDR Radio] Stopping decoder process');
     self.intentionalStop = true;
     try {
+      // Kill FM processes
       exec('sudo pkill -f "rtl_fm -f"');
       exec('sudo pkill -f "aplay -D volumio"');
+      // Kill DAB processes
+      exec('sudo pkill -f "dab-rtlsdr-3"');
       self.decoderProcess.kill('SIGTERM');
     } catch (e) {
       self.logger.error('[RTL-SDR Radio] Error stopping decoder: ' + e);
@@ -754,3 +819,233 @@ ControllerRtlsdrRadio.prototype.parseScanResults = function(scanFile) {
   
   return defer.promise;
 };
+
+// ============================================
+// DAB Radio Functions
+// ============================================
+
+ControllerRtlsdrRadio.prototype.scanDab = function() {
+  var self = this;
+  var defer = libQ.defer();
+  
+  self.logger.info('[RTL-SDR Radio] Starting DAB scan...');
+  self.commandRouter.pushToastMessage('info', 'DAB Radio', 'Scanning for DAB stations (takes 30-60 seconds)...');
+  
+  // Generate unique temp file name
+  var scanFile = '/tmp/dab_scan_' + Date.now() + '.json';
+  
+  // Get DAB gain from config
+  var dabGain = self.config.get('dab_gain', 80);
+  
+  // dab-scanner-3 command:
+  // -B BAND_III = Scan Band III (European DAB standard, 174-240 MHz)
+  // -G <gain> = Tuner gain (0-49.6, higher = more sensitive)
+  // -j = JSON output format
+  var command = 'dab-scanner-3 -B BAND_III -G ' + dabGain + ' -j > ' + scanFile;
+  
+  self.logger.info('[RTL-SDR Radio] DAB scan command: ' + command);
+  
+  exec(command, { timeout: 120000 }, function(error, stdout, stderr) {
+    if (error) {
+      self.logger.error('[RTL-SDR Radio] DAB scan failed: ' + error);
+      self.commandRouter.pushToastMessage('error', 'DAB Radio', 'Scan failed: ' + error.message);
+      defer.reject(error);
+      return;
+    }
+    
+    self.logger.info('[RTL-SDR Radio] DAB scan complete, parsing results...');
+    
+    // Parse scan results
+    self.parseDabScanResults(scanFile)
+      .then(function(stations) {
+        self.logger.info('[RTL-SDR Radio] Found ' + stations.length + ' DAB services');
+        
+        // Save to database
+        self.stationsDb.dab = stations;
+        self.saveStations();
+        
+        self.commandRouter.pushToastMessage('success', 'DAB Radio', 
+          'Found ' + stations.length + ' services');
+        
+        defer.resolve(stations);
+      })
+      .fail(function(e) {
+        self.logger.error('[RTL-SDR Radio] Failed to parse DAB scan results: ' + e);
+        self.commandRouter.pushToastMessage('error', 'DAB Radio', 'Failed to parse results');
+        defer.reject(e);
+      });
+  });
+  
+  return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.parseDabScanResults = function(scanFile) {
+  var self = this;
+  var defer = libQ.defer();
+  
+  fs.readFile(scanFile, 'utf8', function(err, data) {
+    if (err) {
+      self.logger.error('[RTL-SDR Radio] Failed to read DAB scan file: ' + err);
+      defer.reject(err);
+      return;
+    }
+    
+    try {
+      // dab-scanner-3 outputs debug text before JSON
+      // Extract only the JSON portion (starts with '{')
+      var jsonStart = data.indexOf('{');
+      if (jsonStart === -1) {
+        self.logger.error('[RTL-SDR Radio] No JSON found in scan output');
+        defer.reject(new Error('No JSON in scan output'));
+        return;
+      }
+      
+      var jsonData = data.substring(jsonStart);
+      self.logger.info('[RTL-SDR Radio] Extracted JSON from position ' + jsonStart);
+      
+      // Parse JSON output from dab-scanner-3
+      var scanData = JSON.parse(jsonData);
+      
+      // Scanner returns ensembles as object with ensemble IDs as keys
+      var ensembleIds = Object.keys(scanData);
+      
+      if (ensembleIds.length === 0) {
+        self.logger.info('[RTL-SDR Radio] No DAB ensembles found');
+        defer.resolve([]);
+        return;
+      }
+      
+      self.logger.info('[RTL-SDR Radio] Found ' + ensembleIds.length + ' DAB ensembles');
+      
+      // Flatten ensemble/service structure into service list
+      var services = [];
+      
+      ensembleIds.forEach(function(ensembleId) {
+        var ensemble = scanData[ensembleId];
+        
+        if (!ensemble.services) {
+          return;
+        }
+        
+        // Services are also an object with service IDs as keys
+        var serviceIds = Object.keys(ensemble.services);
+        
+        serviceIds.forEach(function(serviceId) {
+          var service = ensemble.services[serviceId];
+          
+          // Only include services with audio field (exclude data services)
+          if (!service.audio) {
+            return;
+          }
+          
+          // Store both trimmed name for display and exact name for playback
+          var trimmedName = service.name.trim();
+          var exactName = service.name;  // Preserve trailing spaces
+          
+          services.push({
+            name: trimmedName,              // For display in UI
+            exactName: exactName,            // For playback command (with spaces)
+            ensemble: ensemble.name.trim(),
+            channel: ensemble.channel,
+            serviceId: serviceId,
+            ensembleId: ensembleId,
+            bitrate: service.bitRate,
+            audioType: service.audio,
+            last_seen: new Date().toISOString()
+          });
+          
+          self.logger.info('[RTL-SDR Radio] Found DAB service: ' + trimmedName + 
+                          ' (' + service.bitRate + 'kbps ' + service.audio + ') on ' + 
+                          ensemble.name.trim() + ' (Ch ' + ensemble.channel + ')');
+        });
+      });
+      
+      // Sort services alphabetically by name
+      services.sort(function(a, b) {
+        return a.name.localeCompare(b.name);
+      });
+      
+      // Cleanup temp file
+      fs.unlink(scanFile, function() {});
+      
+      defer.resolve(services);
+      
+    } catch (e) {
+      self.logger.error('[RTL-SDR Radio] Error parsing DAB scan data: ' + e);
+      defer.reject(e);
+    }
+  });
+  
+  return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.playDabStation = function(channel, serviceName, stationTitle) {
+  var self = this;
+  var defer = libQ.defer();
+  
+  self.logger.info('[RTL-SDR Radio] Playing DAB station: ' + serviceName + ' on channel ' + channel);
+  
+  // Get DAB gain from config
+  var dabGain = self.config.get('dab_gain', 80);
+  
+  // Build dab-rtlsdr-3 command piped to aplay
+  // -C <channel> = DAB channel (e.g., 12B)
+  // -P "<service>" = Service name (must match exactly with spaces)
+  // -G <gain> = Tuner gain
+  // -D 30 = Detection timeout (30 seconds to find ensemble)
+  // 2>/dev/null = Discard debug output to stderr
+  // Pipe PCM audio to aplay with Volumio device
+  var command = 'dab-rtlsdr-3 -C ' + channel + 
+                ' -P "' + serviceName.replace(/"/g, '\\"') + '"' +
+                ' -G ' + dabGain + 
+                ' -D 30' +
+                ' 2>/dev/null | aplay -D volumio -f S16_LE -r 48000 -c 2';
+  
+  self.logger.info('[RTL-SDR Radio] DAB command: ' + command);
+  
+  // Start decoder process
+  self.decoderProcess = exec(command, function(error, stdout, stderr) {
+    if (error) {
+      self.logger.error('[RTL-SDR Radio] DAB decoder error: ' + error);
+      // Don't reject here - process might have been killed intentionally
+    }
+  });
+  
+  self.decoderProcess.on('error', function(err) {
+    self.logger.error('[RTL-SDR Radio] DAB decoder process error: ' + err);
+  });
+  
+  // Store current station info
+  self.currentStation = {
+    type: 'dab',
+    channel: channel,
+    service: serviceName,
+    name: stationTitle
+  };
+  
+  // Update playback state
+  self.commandRouter.stateMachine.setConsumeUpdateService(undefined);
+  var state = {
+    status: 'play',
+    service: 'rtlsdr_radio',
+    title: stationTitle,
+    artist: 'DAB Radio',
+    album: 'Channel ' + channel,
+    albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/radio.svg',
+    uri: 'rtlsdr://dab/' + channel + '/' + encodeURIComponent(serviceName),
+    trackType: 'DAB',
+    seek: 0,
+    duration: 0,
+    samplerate: '48 kHz',
+    bitdepth: '16 bit',
+    channels: 2
+  };
+  
+  self.commandRouter.servicePushState(state, 'rtlsdr_radio');
+  
+  self.logger.info('[RTL-SDR Radio] DAB playback started: ' + stationTitle);
+  defer.resolve();
+  
+  return defer.promise;
+};
+
