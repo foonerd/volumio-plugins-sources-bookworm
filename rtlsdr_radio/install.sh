@@ -1,20 +1,45 @@
 #!/bin/bash
-
 echo "Installing FM/DAB Radio plugin dependencies"
 
-# Detect architecture
-ARCH=$(dpkg --print-architecture)
-PLUGIN_DIR="/data/plugins/music_service/rtlsdr_radio"
-BIN_SOURCE="$PLUGIN_DIR/bin/$ARCH"
+# Get Volumio architecture - direct match to bin/ folder
+ARCH=$(cat /etc/os-release | grep ^VOLUMIO_ARCH | tr -d 'VOLUMIO_ARCH="')
+
+if [ -z "$ARCH" ]; then
+  echo "ERROR: Could not detect Volumio architecture"
+  exit 1
+fi
 
 echo "Detected architecture: $ARCH"
+
+PLUGIN_DIR="/data/plugins/music_service/rtlsdr_radio"
+BIN_SOURCE="$PLUGIN_DIR/bin/$ARCH"
 
 # Verify architecture is supported
 if [ ! -d "$BIN_SOURCE" ]; then
   echo "ERROR: Architecture $ARCH not supported"
-  echo "Supported: armhf, arm64, amd64"
+  echo "Available: arm, armv7, armv8, x64"
   exit 1
 fi
+
+# Set library directory based on architecture
+case "$ARCH" in
+  arm|armv7)
+    LIB_DIR="/usr/lib/arm-linux-gnueabihf"
+    ;;
+  armv8)
+    LIB_DIR="/usr/lib/aarch64-linux-gnu"
+    ;;
+  x64)
+    LIB_DIR="/usr/lib/x86_64-linux-gnu"
+    ;;
+  *)
+    echo "ERROR: Unknown architecture: $ARCH"
+    exit 1
+    ;;
+esac
+
+echo "Using binaries from: $BIN_SOURCE"
+echo "Library directory: $LIB_DIR"
 
 # Update package list
 apt-get update
@@ -26,6 +51,18 @@ apt-get install -y rtl-sdr librtlsdr0
 # Install runtime dependencies for DAB (no build tools)
 echo "Installing DAB runtime dependencies..."
 apt-get install -y libfftw3-3 libsamplerate0 libfaad2
+
+# Create librtlsdr.so symlink for dlopen compatibility
+# DAB binaries use dlopen("librtlsdr.so") but package only provides librtlsdr.so.0
+echo "Creating librtlsdr.so symlink..."
+if [ -f "$LIB_DIR/librtlsdr.so.0" ] && [ ! -e "$LIB_DIR/librtlsdr.so" ]; then
+  ln -s "$LIB_DIR/librtlsdr.so.0" "$LIB_DIR/librtlsdr.so"
+  echo "Created symlink: $LIB_DIR/librtlsdr.so -> librtlsdr.so.0"
+elif [ -e "$LIB_DIR/librtlsdr.so" ]; then
+  echo "Symlink already exists: $LIB_DIR/librtlsdr.so"
+else
+  echo "WARNING: Could not create librtlsdr.so symlink - library not found"
+fi
 
 # Copy pre-compiled binaries
 echo "Installing DAB binaries..."
@@ -40,6 +77,13 @@ if [ ! -f /usr/local/bin/dab-rtlsdr-3 ]; then
   exit 1
 fi
 
+if [ ! -f /usr/local/bin/dab-scanner-3 ]; then
+  echo "ERROR: dab-scanner-3 installation failed"
+  exit 1
+fi
+
+echo "DAB binaries installed successfully"
+
 # Create sudoers entry for process control
 echo "Creating sudoers entry for rtlsdr_radio..."
 cat > /etc/sudoers.d/volumio-user-rtlsdr-radio << EOF
@@ -48,13 +92,14 @@ volumio ALL=(ALL) NOPASSWD: /usr/bin/pkill
 EOF
 
 chmod 0440 /etc/sudoers.d/volumio-user-rtlsdr-radio
-
 visudo -c -f /etc/sudoers.d/volumio-user-rtlsdr-radio
 if [ $? -ne 0 ]; then
   echo "ERROR: Invalid sudoers syntax"
   rm -f /etc/sudoers.d/volumio-user-rtlsdr-radio
   exit 1
 fi
+
+echo "Sudoers configuration complete"
 
 # Load ALSA loopback module
 echo "Loading ALSA loopback module..."
@@ -69,5 +114,11 @@ fi
 # Create stations database directory
 mkdir -p /data/plugins/music_service/rtlsdr_radio
 
+echo ""
+echo "=========================================="
 echo "FM/DAB Radio plugin installation complete"
-echo "Installation time: ~30 seconds (vs 20+ minutes for compilation)"
+echo "=========================================="
+echo "Architecture: $ARCH"
+echo "Binaries: /usr/local/bin/dab-{rtlsdr,scanner}-3"
+echo "Installation time: ~30 seconds"
+echo ""
