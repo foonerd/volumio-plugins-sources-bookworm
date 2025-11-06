@@ -64,7 +64,13 @@ ControllerRtlsdrRadio.prototype.onStop = function() {
   self.stopDecoder();
   self.commandRouter.volumioRemoveToBrowseSources('FM/DAB Radio');
   
-  defer.resolve();
+  // Wait for decoder processes to fully terminate
+  // stopDecoder has 500ms timeout, so wait 600ms to ensure cleanup
+  setTimeout(function() {
+    self.logger.info('[RTL-SDR Radio] Plugin stopped');
+    defer.resolve();
+  }, 600);
+  
   return defer.promise;
 };
 
@@ -212,7 +218,7 @@ ControllerRtlsdrRadio.prototype.handleBrowseUri = function(curUri) {
         title: station.name,
         artist: station.frequency + ' MHz',
         album: 'FM Radio',
-        albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/radio.svg',
+        albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/fm.svg',
         uri: 'rtlsdr://fm/' + station.frequency
       };
     });
@@ -252,6 +258,7 @@ ControllerRtlsdrRadio.prototype.handleBrowseUri = function(curUri) {
         title: station.name,                           // Display name (trimmed)
         artist: station.ensemble,
         album: 'Channel ' + station.channel,
+        albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/dab.svg',
         icon: 'fa fa-broadcast-tower',
         uri: 'rtlsdr://dab/' + station.channel + '/' + encodeURIComponent(station.exactName)  // Use exactName with spaces
       });
@@ -424,6 +431,7 @@ ControllerRtlsdrRadio.prototype.startFmPlayback = function(freq, stationName, de
     title: stationName,
     artist: 'FM ' + freq + ' MHz',
     album: 'FM Radio',
+    albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/fm.svg',
     uri: 'rtlsdr://fm/' + freq,
     trackType: 'fm',
     samplerate: '48 KHz',
@@ -985,6 +993,22 @@ ControllerRtlsdrRadio.prototype.playDabStation = function(channel, serviceName, 
   
   self.logger.info('[RTL-SDR Radio] Playing DAB station: ' + serviceName + ' on channel ' + channel);
   
+  // If decoder is still running, wait for cleanup to complete
+  if (self.decoderProcess !== null) {
+    self.logger.info('[RTL-SDR Radio] Waiting for previous station cleanup...');
+    setTimeout(function() {
+      self.startDabPlayback(channel, serviceName, stationTitle, defer);
+    }, 600); // Wait slightly longer than stopDecoder timeout (500ms)
+  } else {
+    self.startDabPlayback(channel, serviceName, stationTitle, defer);
+  }
+  
+  return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.startDabPlayback = function(channel, serviceName, stationTitle, defer) {
+  var self = this;
+  
   // Get DAB gain from config
   var dabGain = self.config.get('dab_gain', 80);
   
@@ -1003,49 +1027,64 @@ ControllerRtlsdrRadio.prototype.playDabStation = function(channel, serviceName, 
   
   self.logger.info('[RTL-SDR Radio] DAB command: ' + command);
   
+  // Clear intentional stop flag when starting new playback
+  self.intentionalStop = false;
+  
   // Start decoder process
   self.decoderProcess = exec(command, function(error, stdout, stderr) {
     if (error) {
-      self.logger.error('[RTL-SDR Radio] DAB decoder error: ' + error);
-      // Don't reject here - process might have been killed intentionally
+      // Only log error if it wasn't an intentional stop
+      if (!self.intentionalStop) {
+        self.logger.error('[RTL-SDR Radio] DAB decoder error: ' + error);
+      }
+      self.decoderProcess = null;
     }
   });
   
-  self.decoderProcess.on('error', function(err) {
-    self.logger.error('[RTL-SDR Radio] DAB decoder process error: ' + err);
-  });
-  
-  // Store current station info
+  // Store current station for resume
   self.currentStation = {
-    type: 'dab',
-    channel: channel,
-    service: serviceName,
-    name: stationTitle
+    uri: 'rtlsdr://dab/' + channel + '/' + encodeURIComponent(serviceName),
+    name: stationTitle,
+    service: 'rtlsdr_radio'
   };
   
-  // Update playback state
-  self.commandRouter.stateMachine.setConsumeUpdateService(undefined);
+  // Update Volumio state machine
+  self.commandRouter.stateMachine.setConsumeUpdateService('rtlsdr_radio');
+  
   var state = {
     status: 'play',
     service: 'rtlsdr_radio',
     title: stationTitle,
     artist: 'DAB Radio',
     album: 'Channel ' + channel,
-    albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/radio.svg',
+    albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/dab.svg',
     uri: 'rtlsdr://dab/' + channel + '/' + encodeURIComponent(serviceName),
     trackType: 'DAB',
-    seek: 0,
-    duration: 0,
     samplerate: '48 kHz',
     bitdepth: '16 bit',
-    channels: 2
+    channels: 2,
+    duration: 0,
+    seek: 0
   };
+  
+  // Clear state to force state machine recognition of change
+  // This mimics the stop() function behavior to ensure UI update
+  self.commandRouter.stateMachine.setVolatile({
+    service: 'rtlsdr_radio',
+    status: 'stop',
+    title: '',
+    artist: '',
+    album: '',
+    uri: ''
+  });
   
   self.commandRouter.servicePushState(state, 'rtlsdr_radio');
   
-  self.logger.info('[RTL-SDR Radio] DAB playback started: ' + stationTitle);
-  defer.resolve();
+  // Force state machine update to trigger UI refresh
+  // This ensures "Received an update from plugin" event fires
+  setTimeout(function() {
+    self.commandRouter.stateMachine.pushState(state);
+  }, 500);
   
-  return defer.promise;
+  defer.resolve();
 };
-
