@@ -156,7 +156,7 @@ ControllerRtlsdrRadio.prototype.addToBrowseSources = function() {
     uri: 'rtlsdr',
     plugin_type: 'music_service',
     plugin_name: 'rtlsdr_radio',
-    albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/icon.png'
+    albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/radio.svg'
   };
   
   self.commandRouter.volumioAddToBrowseSources(data);
@@ -195,7 +195,7 @@ ControllerRtlsdrRadio.prototype.handleBrowseUri = function(curUri) {
         title: station.name,
         artist: station.frequency + ' MHz',
         album: 'FM Radio',
-        albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/icon.png',
+        albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/radio.svg',
         uri: 'rtlsdr://fm/' + station.frequency
       };
     });
