@@ -64,6 +64,32 @@ else
   echo "WARNING: Could not create librtlsdr.so symlink - library not found"
 fi
 
+# Blacklist DVB-T kernel drivers to allow rtl-sdr userspace access
+echo "Configuring RTL-SDR kernel module blacklist..."
+cat > /etc/modprobe.d/blacklist-rtl-sdr.conf << EOF
+# Blacklist DVB-T kernel drivers to allow rtl-sdr userspace access
+# RTL-SDR Radio Plugin for Volumio
+blacklist dvb_usb_rtl28xxu
+blacklist rtl2832
+blacklist rtl2832_sdr
+blacklist rtl2830
+blacklist dvb_usb_v2
+blacklist dvb_core
+EOF
+
+echo "Blacklist configuration created"
+
+# Unload conflicting modules if currently loaded
+echo "Unloading conflicting DVB-T kernel modules..."
+modprobe -r dvb_usb_rtl28xxu 2>/dev/null
+modprobe -r rtl2832_sdr 2>/dev/null
+modprobe -r rtl2832 2>/dev/null
+modprobe -r dvb_usb_v2 2>/dev/null
+modprobe -r dvb_core 2>/dev/null
+
+echo "DVB-T modules unloaded (if they were loaded)"
+echo "NOTE: You may need to unplug/replug the RTL-SDR dongle for changes to take effect"
+
 # Copy pre-compiled binaries
 echo "Installing DAB binaries..."
 cp "$BIN_SOURCE/dab-rtlsdr-3" /usr/local/bin/

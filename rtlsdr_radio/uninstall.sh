@@ -12,6 +12,13 @@ if [ -f /etc/sudoers.d/volumio-user-rtlsdr-radio ]; then
   echo "Removed sudoers entry"
 fi
 
+# Remove RTL-SDR kernel module blacklist
+if [ -f /etc/modprobe.d/blacklist-rtl-sdr.conf ]; then
+  rm -f /etc/modprobe.d/blacklist-rtl-sdr.conf
+  echo "Removed RTL-SDR kernel module blacklist"
+  echo "NOTE: DVB-T drivers will load automatically on next RTL-SDR dongle connection"
+fi
+
 # Remove ALSA loopback from persistent modules
 sed -i '/snd-aloop/d' /etc/modules
 
