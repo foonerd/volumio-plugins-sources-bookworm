@@ -571,23 +571,20 @@ ControllerRtlsdrRadio.prototype.handleBrowseUri = function(curUri) {
   
   self.logger.info('[RTL-SDR Radio] Browse URI: ' + curUri);
   
-  // Handle rescan trigger
+  // Handle rescan triggers (legacy compatibility)
   if (curUri === 'rtlsdr://rescan') {
     self.scanFm()
       .then(function() {
-        // Return to main browse view after scan
         return self.handleBrowseUri('rtlsdr');
       })
       .then(function(response) {
         defer.resolve(response);
       })
       .fail(function(e) {
-        // Only log and reject if stop was not intentional
         if (!self.intentionalStop) {
           self.logger.error('[RTL-SDR Radio] Rescan failed: ' + e);
           defer.reject(e);
         } else {
-          // Canceled intentionally, return current browse state
           self.handleBrowseUri('rtlsdr')
             .then(function(response) {
               defer.resolve(response);
@@ -600,23 +597,19 @@ ControllerRtlsdrRadio.prototype.handleBrowseUri = function(curUri) {
     return defer.promise;
   }
   
-  // Handle DAB rescan trigger
   if (curUri === 'rtlsdr://rescan-dab') {
     self.scanDab()
       .then(function() {
-        // Return to main browse view after scan
         return self.handleBrowseUri('rtlsdr');
       })
       .then(function(response) {
         defer.resolve(response);
       })
       .fail(function(e) {
-        // Only log and reject if stop was not intentional
         if (!self.intentionalStop) {
           self.logger.error('[RTL-SDR Radio] DAB rescan failed: ' + e);
           defer.reject(e);
         } else {
-          // Canceled intentionally, return current browse state
           self.handleBrowseUri('rtlsdr')
             .then(function(response) {
               defer.resolve(response);
@@ -629,106 +622,735 @@ ControllerRtlsdrRadio.prototype.handleBrowseUri = function(curUri) {
     return defer.promise;
   }
   
-  // Build FM station list
-  var fmItems = [];
-  if (self.stationsDb.fm && self.stationsDb.fm.length > 0) {
-    fmItems = self.stationsDb.fm.map(function(station) {
-      return {
+  // Route to appropriate view
+  if (curUri === 'rtlsdr' || curUri === 'rtlsdr://') {
+    defer.resolve(self.showMainOrganizedView());
+  } else if (curUri === 'rtlsdr://favorites') {
+    defer.resolve(self.showFavoritesView());
+  } else if (curUri === 'rtlsdr://recent') {
+    defer.resolve(self.showRecentView());
+  } else if (curUri === 'rtlsdr://fm') {
+    defer.resolve(self.showFmView());
+  } else if (curUri === 'rtlsdr://dab') {
+    defer.resolve(self.showDabByEnsembleView());
+  } else if (curUri.indexOf('rtlsdr://dab/ensemble/') === 0) {
+    var ensembleName = decodeURIComponent(curUri.replace('rtlsdr://dab/ensemble/', ''));
+    defer.resolve(self.showDabEnsembleStations(ensembleName));
+  } else if (curUri === 'rtlsdr://dab?view=flat') {
+    defer.resolve(self.showDabFlatView());
+  } else if (curUri === 'rtlsdr://deleted') {
+    defer.resolve(self.showDeletedView());
+  } else if (curUri === 'rtlsdr://deleted/fm') {
+    defer.resolve(self.showDeletedFmView());
+  } else if (curUri === 'rtlsdr://deleted/dab') {
+    defer.resolve(self.showDeletedDabView());
+  } else if (curUri === 'rtlsdr://hidden') {
+    defer.resolve(self.showHiddenView());
+  } else {
+    // Unknown URI
+    self.logger.warn('[RTL-SDR Radio] Unknown URI: ' + curUri);
+    defer.resolve(self.showMainOrganizedView());
+  }
+  
+  return defer.promise;
+};
+
+// ========== HIERARCHICAL BROWSE VIEW FUNCTIONS ==========
+
+ControllerRtlsdrRadio.prototype.showMainOrganizedView = function() {
+  var self = this;
+  
+  var favorites = self.getFavoriteStations();
+  var recent = self.getRecentStations();
+  
+  // Count visible stations
+  var fmCount = 0;
+  var dabCount = 0;
+  var deletedCount = 0;
+  var hiddenCount = 0;
+  
+  if (self.stationsDb.fm) {
+    self.stationsDb.fm.forEach(function(station) {
+      if (station.deleted) {
+        deletedCount++;
+      } else if (station.hidden) {
+        hiddenCount++;
+      } else {
+        fmCount++;
+      }
+    });
+  }
+  
+  if (self.stationsDb.dab) {
+    self.stationsDb.dab.forEach(function(station) {
+      if (station.deleted) {
+        deletedCount++;
+      } else if (station.hidden) {
+        hiddenCount++;
+      } else {
+        dabCount++;
+      }
+    });
+  }
+  
+  var lists = [];
+  
+  // Quick Access section
+  var quickAccessItems = [];
+  
+  if (favorites.length > 0) {
+    quickAccessItems.push({
+      service: 'rtlsdr_radio',
+      type: 'folder',
+      title: 'Favorites',
+      artist: favorites.length + ' station' + (favorites.length !== 1 ? 's' : ''),
+      album: '',
+      icon: 'fa fa-star',
+      uri: 'rtlsdr://favorites'
+    });
+  }
+  
+  if (recent.length > 0) {
+    quickAccessItems.push({
+      service: 'rtlsdr_radio',
+      type: 'folder',
+      title: 'Recently Played',
+      artist: recent.length + ' station' + (recent.length !== 1 ? 's' : ''),
+      album: '',
+      icon: 'fa fa-history',
+      uri: 'rtlsdr://recent'
+    });
+  }
+  
+  if (quickAccessItems.length > 0) {
+    lists.push({
+      title: 'Quick Access',
+      icon: 'fa fa-bolt',
+      availableListViews: ['list', 'grid'],
+      items: quickAccessItems
+    });
+  }
+  
+  // Radio Sources section
+  var radioSourcesItems = [];
+  
+  radioSourcesItems.push({
+    service: 'rtlsdr_radio',
+    type: 'folder',
+    title: 'FM Radio',
+    artist: fmCount + ' station' + (fmCount !== 1 ? 's' : ''),
+    album: '',
+    icon: 'fa fa-signal',
+    uri: 'rtlsdr://fm'
+  });
+  
+  radioSourcesItems.push({
+    service: 'rtlsdr_radio',
+    type: 'folder',
+    title: 'DAB Radio',
+    artist: dabCount + ' service' + (dabCount !== 1 ? 's' : ''),
+    album: '',
+    icon: 'fa fa-rss',
+    uri: 'rtlsdr://dab'
+  });
+  
+  lists.push({
+    title: 'Radio Sources',
+    icon: 'fa fa-radio',
+    availableListViews: ['list'],
+    items: radioSourcesItems
+  });
+  
+  // Management section
+  if (deletedCount > 0 || hiddenCount > 0) {
+    var managementItems = [];
+    
+    if (deletedCount > 0) {
+      managementItems.push({
+        service: 'rtlsdr_radio',
+        type: 'folder',
+        title: 'Deleted Stations',
+        artist: deletedCount + ' station' + (deletedCount !== 1 ? 's' : ''),
+        album: '',
+        icon: 'fa fa-trash',
+        uri: 'rtlsdr://deleted'
+      });
+    }
+    
+    if (hiddenCount > 0) {
+      managementItems.push({
+        service: 'rtlsdr_radio',
+        type: 'folder',
+        title: 'Hidden Stations',
+        artist: hiddenCount + ' station' + (hiddenCount !== 1 ? 's' : ''),
+        album: '',
+        icon: 'fa fa-eye-slash',
+        uri: 'rtlsdr://hidden'
+      });
+    }
+    
+    lists.push({
+      title: 'Management',
+      icon: 'fa fa-cog',
+      availableListViews: ['list'],
+      items: managementItems
+    });
+  }
+  
+  return {
+    navigation: {
+      lists: lists
+    }
+  };
+};
+
+ControllerRtlsdrRadio.prototype.showFavoritesView = function() {
+  var self = this;
+  
+  var favorites = self.getFavoriteStations();
+  var items = [];
+  
+  favorites.forEach(function(fav) {
+    if (fav.type === 'fm') {
+      items.push({
         service: 'rtlsdr_radio',
         type: 'song',
-        title: station.name,
-        artist: station.frequency + ' MHz',
-        album: 'FM Radio',
+        title: fav.station.customName || fav.station.name,
+        artist: fav.station.frequency + ' MHz',
+        album: 'Favorites',
         albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/fm.svg',
-        uri: 'rtlsdr://fm/' + station.frequency
-      };
-    });
-  } else {
-    // No stations - show scan prompt
-    fmItems.push({
+        icon: 'fa fa-star',
+        uri: 'rtlsdr://fm/' + fav.station.frequency
+      });
+    } else if (fav.type === 'dab') {
+      items.push({
+        service: 'rtlsdr_radio',
+        type: 'webradio',
+        title: fav.station.customName || fav.station.name,
+        artist: fav.station.ensemble,
+        album: 'Favorites',
+        albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/dab.svg',
+        icon: 'fa fa-star',
+        uri: 'rtlsdr://dab/' + fav.station.channel + '/' + encodeURIComponent(fav.station.exactName)
+      });
+    }
+  });
+  
+  if (items.length === 0) {
+    items.push({
       service: 'rtlsdr_radio',
       type: 'streaming-category',
-      title: 'No stations found',
-      artist: 'Click Rescan to search for FM stations',
+      title: 'No favorites yet',
+      artist: 'Add stations to favorites from FM or DAB lists',
       album: '',
       icon: 'fa fa-info-circle',
       uri: ''
     });
   }
   
-  // Add rescan option at the end
-  fmItems.push({
+  return {
+    navigation: {
+      prev: { uri: 'rtlsdr://' },
+      lists: [{
+        title: 'Favorites (' + favorites.length + ' stations)',
+        icon: 'fa fa-star',
+        availableListViews: ['list'],
+        items: items
+      }]
+    }
+  };
+};
+
+ControllerRtlsdrRadio.prototype.showRecentView = function() {
+  var self = this;
+  
+  var recent = self.getRecentStations();
+  var items = [];
+  
+  recent.forEach(function(rec) {
+    if (rec.type === 'fm') {
+      items.push({
+        service: 'rtlsdr_radio',
+        type: 'song',
+        title: rec.station.customName || rec.station.name,
+        artist: rec.station.frequency + ' MHz',
+        album: 'Recently Played',
+        albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/fm.svg',
+        uri: 'rtlsdr://fm/' + rec.station.frequency
+      });
+    } else if (rec.type === 'dab') {
+      items.push({
+        service: 'rtlsdr_radio',
+        type: 'webradio',
+        title: rec.station.customName || rec.station.name,
+        artist: rec.station.ensemble,
+        album: 'Recently Played',
+        albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/dab.svg',
+        uri: 'rtlsdr://dab/' + rec.station.channel + '/' + encodeURIComponent(rec.station.exactName)
+      });
+    }
+  });
+  
+  if (items.length === 0) {
+    items.push({
+      service: 'rtlsdr_radio',
+      type: 'streaming-category',
+      title: 'No recently played stations',
+      artist: 'Play some stations to see them here',
+      album: '',
+      icon: 'fa fa-info-circle',
+      uri: ''
+    });
+  }
+  
+  return {
+    navigation: {
+      prev: { uri: 'rtlsdr://' },
+      lists: [{
+        title: 'Recently Played',
+        icon: 'fa fa-history',
+        availableListViews: ['list'],
+        items: items
+      }]
+    }
+  };
+};
+
+ControllerRtlsdrRadio.prototype.showFmView = function() {
+  var self = this;
+  
+  var items = [];
+  
+  if (self.stationsDb.fm) {
+    self.stationsDb.fm.forEach(function(station) {
+      if (!station.deleted && !station.hidden) {
+        items.push({
+          service: 'rtlsdr_radio',
+          type: 'song',
+          title: station.customName || station.name,
+          artist: station.frequency + ' MHz',
+          album: 'FM Radio',
+          albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/fm.svg',
+          icon: station.favorite ? 'fa fa-star' : '',
+          uri: 'rtlsdr://fm/' + station.frequency
+        });
+      }
+    });
+  }
+  
+  if (items.length === 0) {
+    items.push({
+      service: 'rtlsdr_radio',
+      type: 'streaming-category',
+      title: 'No FM stations found',
+      artist: 'Click Rescan to search for stations',
+      album: '',
+      icon: 'fa fa-info-circle',
+      uri: ''
+    });
+  }
+  
+  // Add rescan button
+  items.push({
     service: 'rtlsdr_radio',
     type: 'streaming-category',
-    title: 'Rescan Stations',
+    title: 'Rescan FM Stations',
     artist: 'Scan for FM stations (takes ~10 seconds)',
     album: '',
     icon: 'fa fa-refresh',
     uri: 'rtlsdr://rescan'
   });
   
-  // Build DAB station list
-  var dabItems = [];
+  return {
+    navigation: {
+      prev: { uri: 'rtlsdr://' },
+      lists: [{
+        title: 'FM Radio (' + (items.length - 1) + ' stations)',
+        icon: 'fa fa-signal',
+        availableListViews: ['list'],
+        items: items
+      }]
+    }
+  };
+};
+
+ControllerRtlsdrRadio.prototype.showDabByEnsembleView = function() {
+  var self = this;
   
-  if (self.stationsDb.dab && self.stationsDb.dab.length > 0) {
-    // Add DAB stations
-    self.stationsDb.dab.forEach(function(station) {
-      dabItems.push({
-        service: 'rtlsdr_radio',
-        type: 'webradio',
-        title: station.name,                           // Display name (trimmed)
-        artist: station.ensemble,
-        album: 'Channel ' + station.channel,
-        albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/dab.svg',
-        icon: 'fa fa-broadcast-tower',
-        uri: 'rtlsdr://dab/' + station.channel + '/' + encodeURIComponent(station.exactName)  // Use exactName with spaces
-      });
+  var ensembles = self.getStationsByEnsemble();
+  var items = [];
+  
+  // Create folder for each ensemble
+  ensembles.forEach(function(ensemble) {
+    items.push({
+      service: 'rtlsdr_radio',
+      type: 'folder',
+      title: ensemble.name,
+      artist: ensemble.stations.length + ' service' + (ensemble.stations.length !== 1 ? 's' : '') + 
+              ' on Ch ' + ensemble.channel,
+      album: 'DAB Ensembles',
+      icon: 'fa fa-list',
+      uri: 'rtlsdr://dab/ensemble/' + encodeURIComponent(ensemble.name)
+    });
+  });
+  
+  if (items.length > 0) {
+    // Add flat view option
+    items.push({
+      service: 'rtlsdr_radio',
+      type: 'folder',
+      title: 'All DAB Stations (Flat List)',
+      artist: self.stationsDb.dab.filter(function(s) { return !s.deleted && !s.hidden; }).length + ' services',
+      album: '',
+      icon: 'fa fa-th-list',
+      uri: 'rtlsdr://dab?view=flat'
     });
   } else {
-    // No stations - show scan prompt
-    dabItems.push({
+    items.push({
       service: 'rtlsdr_radio',
       type: 'streaming-category',
       title: 'No DAB stations found',
-      artist: 'Click Rescan to search for DAB stations',
+      artist: 'Click Rescan to search for stations',
       album: '',
       icon: 'fa fa-info-circle',
       uri: ''
     });
   }
   
-  // Add rescan option at the end
-  dabItems.push({
+  // Add rescan button
+  items.push({
     service: 'rtlsdr_radio',
-    type: 'streaming-category',
+      type: 'streaming-category',
     title: 'Rescan DAB Stations',
-    artist: 'Scan for DAB stations (takes ~30-60 seconds)',
+    artist: 'Scan for DAB stations (takes 30-60 seconds)',
     album: '',
     icon: 'fa fa-refresh',
     uri: 'rtlsdr://rescan-dab'
   });
   
-  var response = {
+  return {
     navigation: {
-      lists: [
-        {
-          title: 'FM Radio (' + (self.stationsDb.fm ? self.stationsDb.fm.length : 0) + ' stations)',
-          icon: 'fa fa-signal',
-          availableListViews: ['list'],
-          items: fmItems
-        },
-        {
-          title: 'DAB Radio (' + (self.stationsDb.dab ? self.stationsDb.dab.length : 0) + ' services)',
-          icon: 'fa fa-broadcast-tower',
-          availableListViews: ['list'],
-          items: dabItems
-        }
-      ]
+      prev: { uri: 'rtlsdr://' },
+      lists: [{
+        title: 'DAB Radio',
+        icon: 'fa fa-rss',
+        availableListViews: ['list'],
+        items: items
+      }]
     }
   };
+};
+
+ControllerRtlsdrRadio.prototype.showDabEnsembleStations = function(ensembleName) {
+  var self = this;
   
-  defer.resolve(response);
-  return defer.promise;
+  var items = [];
+  
+  if (self.stationsDb.dab) {
+    self.stationsDb.dab.forEach(function(station) {
+      if (!station.deleted && !station.hidden && station.ensemble === ensembleName) {
+        items.push({
+          service: 'rtlsdr_radio',
+          type: 'webradio',
+          title: station.customName || station.name,
+          artist: station.ensemble,
+          album: 'Channel ' + station.channel,
+          albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/dab.svg',
+          icon: station.favorite ? 'fa fa-star' : '',
+          uri: 'rtlsdr://dab/' + station.channel + '/' + encodeURIComponent(station.exactName)
+        });
+      }
+    });
+  }
+  
+  return {
+    navigation: {
+      prev: { uri: 'rtlsdr://dab' },
+      lists: [{
+        title: ensembleName + ' (' + items.length + ' services)',
+        icon: 'fa fa-list',
+        availableListViews: ['list'],
+        items: items
+      }]
+    }
+  };
+};
+
+ControllerRtlsdrRadio.prototype.showDabFlatView = function() {
+  var self = this;
+  
+  var items = [];
+  
+  if (self.stationsDb.dab) {
+    self.stationsDb.dab.forEach(function(station) {
+      if (!station.deleted && !station.hidden) {
+        items.push({
+          service: 'rtlsdr_radio',
+          type: 'webradio',
+          title: station.customName || station.name,
+          artist: station.ensemble,
+          album: 'Channel ' + station.channel,
+          albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/dab.svg',
+          icon: station.favorite ? 'fa fa-star' : '',
+          uri: 'rtlsdr://dab/' + station.channel + '/' + encodeURIComponent(station.exactName)
+        });
+      }
+    });
+  }
+  
+  if (items.length === 0) {
+    items.push({
+      service: 'rtlsdr_radio',
+      type: 'streaming-category',
+      title: 'No DAB stations found',
+      artist: 'Click Rescan to search for stations',
+      album: '',
+      icon: 'fa fa-info-circle',
+      uri: ''
+    });
+  }
+  
+  // Add rescan button
+  items.push({
+    service: 'rtlsdr_radio',
+    type: 'streaming-category',
+    title: 'Rescan DAB Stations',
+    artist: 'Scan for DAB stations (takes 30-60 seconds)',
+    album: '',
+    icon: 'fa fa-refresh',
+    uri: 'rtlsdr://rescan-dab'
+  });
+  
+  return {
+    navigation: {
+      prev: { uri: 'rtlsdr://dab' },
+      lists: [{
+        title: 'All DAB Stations',
+        icon: 'fa fa-th-list',
+        availableListViews: ['list'],
+        items: items
+      }]
+    }
+  };
+};
+
+ControllerRtlsdrRadio.prototype.showDeletedView = function() {
+  var self = this;
+  
+  var fmDeleted = 0;
+  var dabDeleted = 0;
+  
+  if (self.stationsDb.fm) {
+    fmDeleted = self.stationsDb.fm.filter(function(s) { return s.deleted; }).length;
+  }
+  
+  if (self.stationsDb.dab) {
+    dabDeleted = self.stationsDb.dab.filter(function(s) { return s.deleted; }).length;
+  }
+  
+  var items = [];
+  
+  if (fmDeleted > 0) {
+    items.push({
+      service: 'rtlsdr_radio',
+      type: 'folder',
+      title: 'FM Deleted',
+      artist: fmDeleted + ' station' + (fmDeleted !== 1 ? 's' : ''),
+      album: '',
+      icon: 'fa fa-signal',
+      uri: 'rtlsdr://deleted/fm'
+    });
+  }
+  
+  if (dabDeleted > 0) {
+    items.push({
+      service: 'rtlsdr_radio',
+      type: 'folder',
+      title: 'DAB Deleted',
+      artist: dabDeleted + ' service' + (dabDeleted !== 1 ? 's' : ''),
+      album: '',
+      icon: 'fa fa-rss',
+      uri: 'rtlsdr://deleted/dab'
+    });
+  }
+  
+  if (items.length > 0) {
+    items.push({
+      service: 'rtlsdr_radio',
+      type: 'streaming-category',
+      title: 'Purge All Deleted (Permanent)',
+      artist: 'Remove all deleted stations from database',
+      album: '',
+      icon: 'fa fa-trash-o',
+      uri: 'rtlsdr://purge-all-deleted'
+    });
+  } else {
+    items.push({
+      service: 'rtlsdr_radio',
+      type: 'streaming-category',
+      title: 'No deleted stations',
+      artist: '',
+      album: '',
+      icon: 'fa fa-info-circle',
+      uri: ''
+    });
+  }
+  
+  return {
+    navigation: {
+      prev: { uri: 'rtlsdr://' },
+      lists: [{
+        title: 'Deleted Stations (' + (fmDeleted + dabDeleted) + ' total)',
+        icon: 'fa fa-trash',
+        availableListViews: ['list'],
+        items: items
+      }]
+    }
+  };
+};
+
+ControllerRtlsdrRadio.prototype.showDeletedFmView = function() {
+  var self = this;
+  
+  var items = [];
+  
+  if (self.stationsDb.fm) {
+    self.stationsDb.fm.forEach(function(station) {
+      if (station.deleted) {
+        var artist = 'Deleted';
+        if (station.availableAgain) {
+          artist = 'Deleted - Available again in scan';
+        }
+        
+        items.push({
+          service: 'rtlsdr_radio',
+          type: 'song',
+          title: station.customName || station.name,
+          artist: artist,
+          album: 'FM Deleted',
+          albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/fm.svg',
+          icon: 'fa fa-undo',
+          uri: 'rtlsdr://deleted/fm/' + station.frequency
+        });
+      }
+    });
+  }
+  
+  return {
+    navigation: {
+      prev: { uri: 'rtlsdr://deleted' },
+      lists: [{
+        title: 'FM Deleted Stations (' + items.length + ')',
+        icon: 'fa fa-signal',
+        availableListViews: ['list'],
+        items: items
+      }]
+    }
+  };
+};
+
+ControllerRtlsdrRadio.prototype.showDeletedDabView = function() {
+  var self = this;
+  
+  var items = [];
+  
+  if (self.stationsDb.dab) {
+    self.stationsDb.dab.forEach(function(station) {
+      if (station.deleted) {
+        var artist = 'Deleted';
+        if (station.availableAgain) {
+          artist = 'Deleted - Available again in scan';
+        }
+        
+        items.push({
+          service: 'rtlsdr_radio',
+          type: 'webradio',
+          title: station.customName || station.name,
+          artist: artist,
+          album: 'DAB Deleted',
+          albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/dab.svg',
+          icon: 'fa fa-undo',
+          uri: 'rtlsdr://deleted/dab/' + station.channel + '/' + encodeURIComponent(station.exactName)
+        });
+      }
+    });
+  }
+  
+  return {
+    navigation: {
+      prev: { uri: 'rtlsdr://deleted' },
+      lists: [{
+        title: 'DAB Deleted Stations (' + items.length + ')',
+        icon: 'fa fa-rss',
+        availableListViews: ['list'],
+        items: items
+      }]
+    }
+  };
+};
+
+ControllerRtlsdrRadio.prototype.showHiddenView = function() {
+  var self = this;
+  
+  var items = [];
+  
+  if (self.stationsDb.fm) {
+    self.stationsDb.fm.forEach(function(station) {
+      if (station.hidden && !station.deleted) {
+        items.push({
+          service: 'rtlsdr_radio',
+          type: 'song',
+          title: station.customName || station.name,
+          artist: station.frequency + ' MHz',
+          album: 'FM Hidden',
+          albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/fm.svg',
+          icon: 'fa fa-eye-slash',
+          uri: 'rtlsdr://fm/' + station.frequency
+        });
+      }
+    });
+  }
+  
+  if (self.stationsDb.dab) {
+    self.stationsDb.dab.forEach(function(station) {
+      if (station.hidden && !station.deleted) {
+        items.push({
+          service: 'rtlsdr_radio',
+          type: 'webradio',
+          title: station.customName || station.name,
+          artist: station.ensemble,
+          album: 'DAB Hidden',
+          albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/dab.svg',
+          icon: 'fa fa-eye-slash',
+          uri: 'rtlsdr://dab/' + station.channel + '/' + encodeURIComponent(station.exactName)
+        });
+      }
+    });
+  }
+  
+  if (items.length === 0) {
+    items.push({
+      service: 'rtlsdr_radio',
+      type: 'streaming-category',
+      title: 'No hidden stations',
+      artist: '',
+      album: '',
+      icon: 'fa fa-info-circle',
+      uri: ''
+    });
+  }
+  
+  return {
+    navigation: {
+      prev: { uri: 'rtlsdr://' },
+      lists: [{
+        title: 'Hidden Stations (' + items.length + ')',
+        icon: 'fa fa-eye-slash',
+        availableListViews: ['list'],
+        items: items
+      }]
+    }
+  };
 };
 
 ControllerRtlsdrRadio.prototype.clearAddPlayTrack = function(track) {
@@ -821,6 +1443,15 @@ ControllerRtlsdrRadio.prototype.playFmStation = function(frequency, stationName)
 
 ControllerRtlsdrRadio.prototype.startFmPlayback = function(freq, stationName, defer) {
   var self = this;
+  
+  // Update play statistics
+  var uri = 'rtlsdr://fm/' + freq;
+  var stationInfo = self.getStationByUri(uri);
+  if (stationInfo) {
+    stationInfo.station.playCount = (stationInfo.station.playCount || 0) + 1;
+    stationInfo.station.lastPlayed = new Date().toISOString();
+    self.saveStations();
+  }
   
   // Get gain from config
   var gain = self.config.get('fm_gain', 50);
@@ -1059,15 +1690,58 @@ ControllerRtlsdrRadio.prototype.loadStations = function() {
   
   try {
     if (fs.existsSync(stationsFile)) {
-      self.stationsDb = fs.readJsonSync(stationsFile);
-      self.logger.info('[RTL-SDR Radio] Loaded stations database');
+      var data = fs.readJsonSync(stationsFile);
+      var version = self.getDatabaseVersion(data);
+      
+      self.logger.info('[RTL-SDR Radio] Database version: ' + version);
+      
+      if (version < 2) {
+        // Migration needed from v1 to v2
+        self.logger.info('[RTL-SDR Radio] Migrating database from v' + version + ' to v2');
+        self.stationsDb = self.migrateDatabase(data);
+        
+        if (self.stationsDb) {
+          // Save migrated database
+          self.saveStations();
+          self.commandRouter.pushToastMessage('info', 'FM/DAB Radio', 
+            'Database upgraded to v2 (backup saved)');
+        } else {
+          // Migration failed, create new
+          self.logger.error('[RTL-SDR Radio] Migration failed, creating new database');
+          self.stationsDb = self.createEmptyDatabaseV2();
+        }
+      } else if (version === 2) {
+        // Validate v2 database
+        var validation = self.validateDatabaseV2(data);
+        if (validation.valid) {
+          self.stationsDb = data;
+          self.logger.info('[RTL-SDR Radio] Loaded v2 database successfully');
+        } else {
+          self.logger.error('[RTL-SDR Radio] Database validation failed: ' + 
+            validation.errors.join(', '));
+          // Try to load backup or create new
+          var backupFile = stationsFile + '.backup';
+          if (fs.existsSync(backupFile)) {
+            self.logger.info('[RTL-SDR Radio] Loading from backup');
+            self.stationsDb = fs.readJsonSync(backupFile);
+          } else {
+            self.logger.info('[RTL-SDR Radio] Creating new database');
+            self.stationsDb = self.createEmptyDatabaseV2();
+          }
+        }
+      } else {
+        // Unsupported version
+        self.logger.error('[RTL-SDR Radio] Unsupported database version: ' + version);
+        self.stationsDb = self.createEmptyDatabaseV2();
+      }
     } else {
-      self.stationsDb = { fm: [], dab: [] };
-      self.logger.info('[RTL-SDR Radio] No stations database found');
+      // No database file, create new v2
+      self.logger.info('[RTL-SDR Radio] No stations database found, creating v2');
+      self.stationsDb = self.createEmptyDatabaseV2();
     }
   } catch (e) {
     self.logger.error('[RTL-SDR Radio] Error loading stations: ' + e);
-    self.stationsDb = { fm: [], dab: [] };
+    self.stationsDb = self.createEmptyDatabaseV2();
   }
   
   return libQ.resolve();
@@ -1078,11 +1752,675 @@ ControllerRtlsdrRadio.prototype.saveStations = function() {
   var stationsFile = '/data/plugins/music_service/rtlsdr_radio/stations.json';
   
   try {
+    // Validate before saving
+    if (self.stationsDb.version === 2) {
+      var validation = self.validateDatabaseV2(self.stationsDb);
+      if (!validation.valid) {
+        self.logger.error('[RTL-SDR Radio] Cannot save invalid database: ' + 
+          validation.errors.join(', '));
+        return;
+      }
+    }
+    
     fs.writeJsonSync(stationsFile, self.stationsDb);
     self.logger.info('[RTL-SDR Radio] Saved stations database');
   } catch (e) {
     self.logger.error('[RTL-SDR Radio] Failed to save stations: ' + e);
   }
+};
+
+// ========== DATABASE V2 FUNCTIONS ==========
+
+ControllerRtlsdrRadio.prototype.getDatabaseVersion = function(db) {
+  var self = this;
+  
+  if (!db || typeof db !== 'object') {
+    return 1;
+  }
+  
+  // Check for version field
+  if (db.version && typeof db.version === 'number') {
+    return db.version;
+  }
+  
+  // Check for v2 structure (groups and settings objects)
+  if (db.groups && db.settings) {
+    return 2;
+  }
+  
+  // Default to v1
+  return 1;
+};
+
+ControllerRtlsdrRadio.prototype.createEmptyDatabaseV2 = function() {
+  var self = this;
+  
+  return {
+    version: 2,
+    fm: [],
+    dab: [],
+    groups: self.createBuiltinGroups(),
+    settings: self.createDefaultSettings()
+  };
+};
+
+ControllerRtlsdrRadio.prototype.createBuiltinGroups = function() {
+  var self = this;
+  
+  return {
+    favorites: {
+      id: 'favorites',
+      name: 'Favorites',
+      icon: 'fa fa-star',
+      order: 0,
+      builtin: true,
+      type: 'both',
+      description: 'Your favorite stations'
+    },
+    recent: {
+      id: 'recent',
+      name: 'Recently Played',
+      icon: 'fa fa-history',
+      order: 1,
+      builtin: true,
+      type: 'both',
+      description: 'Last 10 played stations'
+    },
+    all_fm: {
+      id: 'all_fm',
+      name: 'All FM Stations',
+      icon: 'fa fa-signal',
+      order: 100,
+      builtin: true,
+      type: 'fm',
+      description: 'All scanned FM stations'
+    },
+    all_dab: {
+      id: 'all_dab',
+      name: 'All DAB Stations',
+      icon: 'fa fa-rss',
+      order: 101,
+      builtin: true,
+      type: 'dab',
+      description: 'All scanned DAB stations'
+    }
+  };
+};
+
+ControllerRtlsdrRadio.prototype.createDefaultSettings = function() {
+  var self = this;
+  
+  return {
+    showHidden: false,
+    defaultView: 'grouped',
+    sortStations: 'frequency',
+    recentlyPlayedCount: 10,
+    autoHideWeakSignals: false,
+    signalThreshold: -40
+  };
+};
+
+ControllerRtlsdrRadio.prototype.transformStationToV2 = function(station, type) {
+  var self = this;
+  var now = new Date().toISOString();
+  
+  // Base v2 fields
+  var v2Station = {
+    customName: null,
+    hidden: false,
+    favorite: false,
+    groups: [],
+    notes: '',
+    playCount: 0,
+    lastPlayed: null,
+    dateAdded: station.last_seen || now,
+    userCreated: false,
+    deleted: false,
+    availableAgain: false
+  };
+  
+  // Merge with existing station data
+  for (var key in station) {
+    if (station.hasOwnProperty(key)) {
+      v2Station[key] = station[key];
+    }
+  }
+  
+  return v2Station;
+};
+
+ControllerRtlsdrRadio.prototype.backupDatabase = function(suffix) {
+  var self = this;
+  var stationsFile = '/data/plugins/music_service/rtlsdr_radio/stations.json';
+  
+  try {
+    if (!fs.existsSync(stationsFile)) {
+      return null;
+    }
+    
+    var timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    var backupFile = stationsFile + '.' + suffix + '.' + timestamp + '.backup';
+    
+    fs.copySync(stationsFile, backupFile);
+    self.logger.info('[RTL-SDR Radio] Created backup: ' + backupFile);
+    
+    return backupFile;
+  } catch (e) {
+    self.logger.error('[RTL-SDR Radio] Failed to create backup: ' + e);
+    return null;
+  }
+};
+
+ControllerRtlsdrRadio.prototype.migrateDatabase = function(oldDb) {
+  var self = this;
+  
+  self.logger.info('[RTL-SDR Radio] Starting database migration to v2');
+  
+  try {
+    // Create backup before migration
+    var backupFile = self.backupDatabase('v1');
+    if (backupFile) {
+      self.logger.info('[RTL-SDR Radio] Backup created: ' + backupFile);
+    }
+    
+    // Create new v2 structure
+    var newDb = self.createEmptyDatabaseV2();
+    
+    // Migrate FM stations
+    if (oldDb.fm && Array.isArray(oldDb.fm)) {
+      newDb.fm = oldDb.fm.map(function(station) {
+        return self.transformStationToV2(station, 'fm');
+      });
+      self.logger.info('[RTL-SDR Radio] Migrated ' + newDb.fm.length + ' FM stations');
+    }
+    
+    // Migrate DAB stations
+    if (oldDb.dab && Array.isArray(oldDb.dab)) {
+      newDb.dab = oldDb.dab.map(function(station) {
+        return self.transformStationToV2(station, 'dab');
+      });
+      self.logger.info('[RTL-SDR Radio] Migrated ' + newDb.dab.length + ' DAB stations');
+    }
+    
+    // Validate migrated database
+    var validation = self.validateDatabaseV2(newDb);
+    if (!validation.valid) {
+      self.logger.error('[RTL-SDR Radio] Migration produced invalid database: ' + 
+        validation.errors.join(', '));
+      return null;
+    }
+    
+    self.logger.info('[RTL-SDR Radio] Migration completed successfully');
+    return newDb;
+    
+  } catch (e) {
+    self.logger.error('[RTL-SDR Radio] Migration failed: ' + e);
+    return null;
+  }
+};
+
+ControllerRtlsdrRadio.prototype.validateDatabaseV2 = function(db) {
+  var self = this;
+  var errors = [];
+  
+  // Check version
+  if (!db.version || db.version !== 2) {
+    errors.push('Missing or invalid version field');
+  }
+  
+  // Check fm array
+  if (!db.fm || !Array.isArray(db.fm)) {
+    errors.push('Missing or invalid fm array');
+  }
+  
+  // Check dab array
+  if (!db.dab || !Array.isArray(db.dab)) {
+    errors.push('Missing or invalid dab array');
+  }
+  
+  // Check groups object
+  if (!db.groups || typeof db.groups !== 'object') {
+    errors.push('Missing or invalid groups object');
+  } else {
+    // Check for required builtin groups
+    var requiredGroups = ['favorites', 'recent', 'all_fm', 'all_dab'];
+    requiredGroups.forEach(function(groupId) {
+      if (!db.groups[groupId]) {
+        errors.push('Missing builtin group: ' + groupId);
+      }
+    });
+  }
+  
+  // Check settings object
+  if (!db.settings || typeof db.settings !== 'object') {
+    errors.push('Missing or invalid settings object');
+  }
+  
+  // Validate FM stations have required fields
+  if (db.fm && Array.isArray(db.fm)) {
+    db.fm.forEach(function(station, index) {
+      if (!station.frequency) {
+        errors.push('FM station ' + index + ' missing frequency');
+      }
+      if (typeof station.hidden !== 'boolean') {
+        errors.push('FM station ' + index + ' missing hidden flag');
+      }
+      if (typeof station.favorite !== 'boolean') {
+        errors.push('FM station ' + index + ' missing favorite flag');
+      }
+    });
+  }
+  
+  // Validate DAB stations have required fields
+  if (db.dab && Array.isArray(db.dab)) {
+    db.dab.forEach(function(station, index) {
+      if (!station.channel) {
+        errors.push('DAB station ' + index + ' missing channel');
+      }
+      if (!station.serviceId) {
+        errors.push('DAB station ' + index + ' missing serviceId');
+      }
+      if (typeof station.hidden !== 'boolean') {
+        errors.push('DAB station ' + index + ' missing hidden flag');
+      }
+      if (typeof station.favorite !== 'boolean') {
+        errors.push('DAB station ' + index + ' missing favorite flag');
+      }
+    });
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors: errors
+  };
+};
+
+ControllerRtlsdrRadio.prototype.getStationByUri = function(uri) {
+  var self = this;
+  
+  if (!uri || typeof uri !== 'string') {
+    return null;
+  }
+  
+  // Parse FM URI: rtlsdr://fm/95.0
+  if (uri.indexOf('rtlsdr://fm/') === 0) {
+    var frequency = uri.replace('rtlsdr://fm/', '');
+    
+    for (var i = 0; i < self.stationsDb.fm.length; i++) {
+      if (self.stationsDb.fm[i].frequency === frequency) {
+        return {
+          type: 'fm',
+          station: self.stationsDb.fm[i],
+          index: i
+        };
+      }
+    }
+  }
+  
+  // Parse DAB URI: rtlsdr://dab/<channel>/<serviceName>
+  if (uri.indexOf('rtlsdr://dab/') === 0) {
+    var dabParts = uri.replace('rtlsdr://dab/', '').split('/');
+    if (dabParts.length >= 2) {
+      var channel = dabParts[0];
+      var serviceName = decodeURIComponent(dabParts[1]);
+      
+      for (var i = 0; i < self.stationsDb.dab.length; i++) {
+        var station = self.stationsDb.dab[i];
+        if (station.channel === channel && station.exactName === serviceName) {
+          return {
+            type: 'dab',
+            station: station,
+            index: i
+          };
+        }
+      }
+    }
+  }
+  
+  return null;
+};
+
+ControllerRtlsdrRadio.prototype.updateStation = function(uri, updates) {
+  var self = this;
+  var defer = libQ.defer();
+  
+  try {
+    var stationInfo = self.getStationByUri(uri);
+    
+    if (!stationInfo) {
+      self.logger.error('[RTL-SDR Radio] Station not found: ' + uri);
+      defer.reject(new Error('Station not found'));
+      return defer.promise;
+    }
+    
+    // Apply updates
+    for (var key in updates) {
+      if (updates.hasOwnProperty(key)) {
+        stationInfo.station[key] = updates[key];
+      }
+    }
+    
+    // Save database
+    self.saveStations();
+    
+    defer.resolve();
+  } catch (e) {
+    self.logger.error('[RTL-SDR Radio] Failed to update station: ' + e);
+    defer.reject(e);
+  }
+  
+  return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.getFavoriteStations = function() {
+  var self = this;
+  var favorites = [];
+  
+  // Get FM favorites
+  if (self.stationsDb.fm) {
+    self.stationsDb.fm.forEach(function(station) {
+      if (station.favorite && !station.deleted && !station.hidden) {
+        favorites.push({
+          type: 'fm',
+          station: station
+        });
+      }
+    });
+  }
+  
+  // Get DAB favorites
+  if (self.stationsDb.dab) {
+    self.stationsDb.dab.forEach(function(station) {
+      if (station.favorite && !station.deleted && !station.hidden) {
+        favorites.push({
+          type: 'dab',
+          station: station
+        });
+      }
+    });
+  }
+  
+  return favorites;
+};
+
+ControllerRtlsdrRadio.prototype.getRecentStations = function(count) {
+  var self = this;
+  var recent = [];
+  count = count || self.stationsDb.settings.recentlyPlayedCount || 10;
+  
+  // Combine FM and DAB stations
+  var allStations = [];
+  
+  if (self.stationsDb.fm) {
+    self.stationsDb.fm.forEach(function(station) {
+      if (!station.deleted && !station.hidden && station.lastPlayed) {
+        allStations.push({
+          type: 'fm',
+          station: station,
+          lastPlayed: new Date(station.lastPlayed).getTime()
+        });
+      }
+    });
+  }
+  
+  if (self.stationsDb.dab) {
+    self.stationsDb.dab.forEach(function(station) {
+      if (!station.deleted && !station.hidden && station.lastPlayed) {
+        allStations.push({
+          type: 'dab',
+          station: station,
+          lastPlayed: new Date(station.lastPlayed).getTime()
+        });
+      }
+    });
+  }
+  
+  // Sort by lastPlayed descending
+  allStations.sort(function(a, b) {
+    return b.lastPlayed - a.lastPlayed;
+  });
+  
+  // Return top N
+  return allStations.slice(0, count);
+};
+
+ControllerRtlsdrRadio.prototype.getStationsByEnsemble = function() {
+  var self = this;
+  var ensembles = {};
+  
+  // Group DAB stations by ensemble
+  if (self.stationsDb.dab) {
+    self.stationsDb.dab.forEach(function(station) {
+      if (station.deleted || station.hidden) {
+        return;
+      }
+      
+      var ensembleName = station.ensemble;
+      if (!ensembles[ensembleName]) {
+        ensembles[ensembleName] = {
+          name: ensembleName,
+          channel: station.channel,
+          stations: []
+        };
+      }
+      ensembles[ensembleName].stations.push(station);
+    });
+  }
+  
+  // Convert to sorted array
+  var ensembleArray = Object.keys(ensembles).map(function(key) {
+    return ensembles[key];
+  }).sort(function(a, b) {
+    return a.name.localeCompare(b.name);
+  });
+  
+  return ensembleArray;
+};
+
+ControllerRtlsdrRadio.prototype.toggleFavorite = function(data) {
+  var self = this;
+  var defer = libQ.defer();
+  
+  var uri = data.uri;
+  
+  self.logger.info('[RTL-SDR Radio] Toggle favorite: ' + uri);
+  
+  var stationInfo = self.getStationByUri(uri);
+  
+  if (!stationInfo) {
+    self.commandRouter.pushToastMessage('error', 'FM/DAB Radio', 'Station not found');
+    defer.reject(new Error('Station not found'));
+    return defer.promise;
+  }
+  
+  // Toggle favorite flag
+  var newValue = !stationInfo.station.favorite;
+  stationInfo.station.favorite = newValue;
+  
+  // Save database
+  self.saveStations();
+  
+  var stationName = stationInfo.station.customName || stationInfo.station.name;
+  var message = newValue ? 'Added to favorites' : 'Removed from favorites';
+  
+  self.commandRouter.pushToastMessage('success', stationName, message);
+  
+  defer.resolve();
+  return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.renameStation = function(data) {
+  var self = this;
+  var defer = libQ.defer();
+  
+  var uri = data.uri;
+  var customName = data.customName || null;
+  
+  self.logger.info('[RTL-SDR Radio] Rename station: ' + uri + ' to ' + customName);
+  
+  self.updateStation(uri, { customName: customName })
+    .then(function() {
+      self.commandRouter.pushToastMessage('success', 'FM/DAB Radio', 'Station renamed');
+      defer.resolve();
+    })
+    .fail(function(e) {
+      self.commandRouter.pushToastMessage('error', 'FM/DAB Radio', 'Failed to rename station');
+      defer.reject(e);
+    });
+  
+  return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.hideStation = function(data) {
+  var self = this;
+  var defer = libQ.defer();
+  
+  var uri = data.uri;
+  
+  self.logger.info('[RTL-SDR Radio] Toggle hide station: ' + uri);
+  
+  var stationInfo = self.getStationByUri(uri);
+  
+  if (!stationInfo) {
+    self.commandRouter.pushToastMessage('error', 'FM/DAB Radio', 'Station not found');
+    defer.reject(new Error('Station not found'));
+    return defer.promise;
+  }
+  
+  // Toggle hidden flag
+  var newValue = !stationInfo.station.hidden;
+  stationInfo.station.hidden = newValue;
+  
+  // Save database
+  self.saveStations();
+  
+  var message = newValue ? 'Station hidden' : 'Station unhidden';
+  self.commandRouter.pushToastMessage('success', 'FM/DAB Radio', message);
+  
+  defer.resolve();
+  return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.deleteStation = function(data) {
+  var self = this;
+  var defer = libQ.defer();
+  
+  var uri = data.uri;
+  
+  self.logger.info('[RTL-SDR Radio] Delete station: ' + uri);
+  
+  self.updateStation(uri, { deleted: true, availableAgain: false })
+    .then(function() {
+      self.commandRouter.pushToastMessage('success', 'FM/DAB Radio', 'Station deleted');
+      defer.resolve();
+    })
+    .fail(function(e) {
+      self.commandRouter.pushToastMessage('error', 'FM/DAB Radio', 'Failed to delete station');
+      defer.reject(e);
+    });
+  
+  return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.restoreStation = function(data) {
+  var self = this;
+  var defer = libQ.defer();
+  
+  var uri = data.uri;
+  
+  self.logger.info('[RTL-SDR Radio] Restore station: ' + uri);
+  
+  self.updateStation(uri, { deleted: false, availableAgain: false })
+    .then(function() {
+      self.commandRouter.pushToastMessage('success', 'FM/DAB Radio', 'Station restored');
+      defer.resolve();
+    })
+    .fail(function(e) {
+      self.commandRouter.pushToastMessage('error', 'FM/DAB Radio', 'Failed to restore station');
+      defer.reject(e);
+    });
+  
+  return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.purgeStation = function(data) {
+  var self = this;
+  var defer = libQ.defer();
+  
+  var uri = data.uri;
+  
+  self.logger.info('[RTL-SDR Radio] Purge station: ' + uri);
+  
+  try {
+    var stationInfo = self.getStationByUri(uri);
+    
+    if (!stationInfo) {
+      self.commandRouter.pushToastMessage('error', 'FM/DAB Radio', 'Station not found');
+      defer.reject(new Error('Station not found'));
+      return defer.promise;
+    }
+    
+    // Remove from array
+    if (stationInfo.type === 'fm') {
+      self.stationsDb.fm.splice(stationInfo.index, 1);
+    } else if (stationInfo.type === 'dab') {
+      self.stationsDb.dab.splice(stationInfo.index, 1);
+    }
+    
+    // Save database
+    self.saveStations();
+    
+    self.commandRouter.pushToastMessage('success', 'FM/DAB Radio', 'Station permanently removed');
+    defer.resolve();
+  } catch (e) {
+    self.logger.error('[RTL-SDR Radio] Failed to purge station: ' + e);
+    self.commandRouter.pushToastMessage('error', 'FM/DAB Radio', 'Failed to purge station');
+    defer.reject(e);
+  }
+  
+  return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.purgeDeletedStations = function() {
+  var self = this;
+  var defer = libQ.defer();
+  
+  self.logger.info('[RTL-SDR Radio] Purge all deleted stations');
+  
+  try {
+    var count = 0;
+    
+    // Filter out deleted FM stations
+    if (self.stationsDb.fm) {
+      var originalLength = self.stationsDb.fm.length;
+      self.stationsDb.fm = self.stationsDb.fm.filter(function(station) {
+        return !station.deleted;
+      });
+      count += originalLength - self.stationsDb.fm.length;
+    }
+    
+    // Filter out deleted DAB stations
+    if (self.stationsDb.dab) {
+      var originalLength = self.stationsDb.dab.length;
+      self.stationsDb.dab = self.stationsDb.dab.filter(function(station) {
+        return !station.deleted;
+      });
+      count += originalLength - self.stationsDb.dab.length;
+    }
+    
+    // Save database
+    self.saveStations();
+    
+    self.commandRouter.pushToastMessage('success', 'FM/DAB Radio', 
+      'Purged ' + count + ' deleted stations');
+    defer.resolve();
+  } catch (e) {
+    self.logger.error('[RTL-SDR Radio] Failed to purge deleted stations: ' + e);
+    self.commandRouter.pushToastMessage('error', 'FM/DAB Radio', 'Failed to purge deleted stations');
+    defer.reject(e);
+  }
+  
+  return defer.promise;
 };
 
 // FM SCANNING METHODS - Phase 3 Implementation
@@ -1514,6 +2852,15 @@ ControllerRtlsdrRadio.prototype.playDabStation = function(channel, serviceName, 
 
 ControllerRtlsdrRadio.prototype.startDabPlayback = function(channel, serviceName, stationTitle, defer) {
   var self = this;
+  
+  // Update play statistics
+  var uri = 'rtlsdr://dab/' + channel + '/' + encodeURIComponent(serviceName);
+  var stationInfo = self.getStationByUri(uri);
+  if (stationInfo) {
+    stationInfo.station.playCount = (stationInfo.station.playCount || 0) + 1;
+    stationInfo.station.lastPlayed = new Date().toISOString();
+    self.saveStations();
+  }
   
   // Get DAB gain from config
   var dabGain = self.config.get('dab_gain', 80);
