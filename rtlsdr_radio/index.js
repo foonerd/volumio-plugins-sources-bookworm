@@ -4260,29 +4260,6 @@ ControllerRtlsdrRadio.prototype.showStationManagementModal = function(stationUri
       }
     },
     {
-      name: 'Save Name',
-      class: 'btn btn-info',
-      emit: 'callMethod',
-      payload: {
-        endpoint: 'music_service/rtlsdr_radio',
-        method: 'processRename',
-        data: { uri: stationUri }
-      }
-    },
-    {
-      name: 'Clear Name',
-      class: 'btn btn-default',
-      emit: 'callMethod',
-      payload: {
-        endpoint: 'music_service/rtlsdr_radio',
-        method: 'renameStation',
-        data: {
-          uri: stationUri,
-          customName: ''
-        }
-      }
-    },
-    {
       name: 'Delete',
       class: 'btn btn-danger',
       emit: 'callMethod',
@@ -4296,17 +4273,10 @@ ControllerRtlsdrRadio.prototype.showStationManagementModal = function(stationUri
   
   var modalData = {
     title: 'Manage Station',
-    message: displayName + (statusText.length > 0 ? '\nStatus: ' + statusText.join(', ') : ''),
+    message: displayName + (statusText.length > 0 ? '<br>Status: ' + statusText.join(', ') : '') +
+             '<br><br><small>Use Settings page to rename stations</small>',
     size: 'md',
-    buttons: buttons,
-    inputs: [
-      {
-        id: 'new_name',
-        type: 'text',
-        placeholder: 'Enter custom name (or leave empty)',
-        value: station.customName || ''
-      }
-    ]
+    buttons: buttons
   };
   
   self.commandRouter.broadcastMessage('openModal', modalData);
