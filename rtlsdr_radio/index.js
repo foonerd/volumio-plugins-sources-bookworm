@@ -17,8 +17,14 @@ function ControllerRtlsdrRadio(context) {
   self.configManager = self.context.configManager;
   
   self.decoderProcess = null;
+  self.scanProcess = null;
   self.currentStation = null;
   self.stationsDb = { fm: [], dab: [] };
+  
+  // Device state management
+  self.deviceState = 'idle'; // idle, scanning_fm, scanning_dab, playing_fm, playing_dab
+  self.operationQueue = []; // Queue of pending operations
+  self.QUEUE_TIMEOUT = 60000; // 60 seconds
 }
 
 ControllerRtlsdrRadio.prototype.onVolumioStart = function() {
@@ -38,7 +44,11 @@ ControllerRtlsdrRadio.prototype.onStart = function() {
   
   self.logger.info('[RTL-SDR Radio] Starting plugin');
   
-  self.loadAlsaLoopback()
+  // Load i18n strings
+  self.loadI18nStrings()
+    .then(function() {
+      return self.loadAlsaLoopback();
+    })
     .then(function() {
       return self.loadStations();
     })
@@ -72,6 +82,56 @@ ControllerRtlsdrRadio.prototype.onStop = function() {
   }, 600);
   
   return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.loadI18nStrings = function() {
+  var self = this;
+  var defer = libQ.defer();
+  
+  var lang_code = self.commandRouter.sharedVars.get('language_code') || 'en';
+  
+  self.commandRouter.i18nJson(
+    __dirname + '/i18n/strings_' + lang_code + '.json',
+    __dirname + '/i18n/strings_en.json',
+    __dirname + '/i18n/strings_en.json'
+  )
+  .then(function(i18nStrings) {
+    self.i18nStrings = i18nStrings;
+    self.logger.info('[RTL-SDR Radio] Loaded i18n strings for language: ' + lang_code);
+    defer.resolve();
+  })
+  .fail(function(e) {
+    self.logger.error('[RTL-SDR Radio] Failed to load i18n strings: ' + e);
+    // Fallback to empty object
+    self.i18nStrings = {};
+    defer.resolve(); // Don't fail plugin startup due to missing translations
+  });
+  
+  return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.getI18nString = function(key) {
+  var self = this;
+  
+  if (self.i18nStrings && self.i18nStrings[key]) {
+    return self.i18nStrings[key];
+  }
+  
+  // Fallback to key if translation not found
+  self.logger.warn('[RTL-SDR Radio] Missing translation for key: ' + key);
+  return key;
+};
+
+ControllerRtlsdrRadio.prototype.getI18nStringFormatted = function(key, ...args) {
+  var self = this;
+  var str = self.getI18nString(key);
+  
+  // Replace {0}, {1}, etc. with provided arguments
+  for (var i = 0; i < args.length; i++) {
+    str = str.replace('{' + i + '}', args[i]);
+  }
+  
+  return str;
 };
 
 ControllerRtlsdrRadio.prototype.getConfigurationFiles = function() {
@@ -166,6 +226,261 @@ ControllerRtlsdrRadio.prototype.addToBrowseSources = function() {
   };
   
   self.commandRouter.volumioAddToBrowseSources(data);
+};
+
+// ========== DEVICE STATE MANAGEMENT ==========
+
+ControllerRtlsdrRadio.prototype.checkDeviceAvailable = function(requestedOperation, operationData) {
+  var self = this;
+  
+  if (self.deviceState === 'idle') {
+    return libQ.resolve(true);
+  }
+  
+  // Device is busy - show modal and handle user choice
+  var defer = libQ.defer();
+  
+  var stateKeys = {
+    'scanning_fm': 'DEVICE_STATE_SCANNING_FM',
+    'scanning_dab': 'DEVICE_STATE_SCANNING_DAB',
+    'playing_fm': 'DEVICE_STATE_PLAYING_FM',
+    'playing_dab': 'DEVICE_STATE_PLAYING_DAB'
+  };
+  
+  var currentActivity = self.getI18nString(stateKeys[self.deviceState] || 'DEVICE_STATE_SCANNING_FM');
+  
+  self.logger.info('[RTL-SDR Radio] Device conflict: currently ' + currentActivity + ', requested: ' + requestedOperation);
+  
+  // Store the pending operation internally (cannot pass defer through modal)
+  if (!self.pendingOperations) {
+    self.pendingOperations = {};
+  }
+  
+  self.pendingOperations[requestedOperation] = {
+    type: requestedOperation,
+    data: operationData,
+    timestamp: Date.now(),
+    defer: defer
+  };
+  
+  // Show modal to user (pass only operation type, not defer object)
+  self.showDeviceConflictModal(currentActivity, requestedOperation);
+  
+  return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.showDeviceConflictModal = function(currentActivity, requestedOperation) {
+  var self = this;
+  
+  // Get translated operation name
+  var operationKeys = {
+    'scan_fm': 'OPERATION_SCAN_FM',
+    'scan_dab': 'OPERATION_SCAN_DAB',
+    'play_fm': 'OPERATION_PLAY_FM',
+    'play_dab': 'OPERATION_PLAY_DAB'
+  };
+  
+  var requestedName = self.getI18nString(operationKeys[requestedOperation] || 'OPERATION_SCAN_FM');
+  
+  // Capitalize first letter for button
+  var capitalizedOperation = requestedName.charAt(0).toUpperCase() + requestedName.slice(1);
+  
+  var modalData = {
+    title: self.getI18nString('DEVICE_BUSY_TITLE'),
+    message: self.getI18nStringFormatted('DEVICE_BUSY_MESSAGE', currentActivity),
+    size: 'md',
+    buttons: [
+      {
+        name: self.getI18nStringFormatted('MODAL_BTN_CANCEL_AND', capitalizedOperation),
+        class: 'btn btn-warning',
+        emit: 'callMethod',
+        payload: {
+          endpoint: 'music_service/rtlsdr_radio',
+          method: 'handleDeviceConflict',
+          data: {
+            action: 'cancel',
+            operationType: requestedOperation
+          }
+        }
+      },
+      {
+        name: self.getI18nString('MODAL_BTN_QUEUE'),
+        class: 'btn btn-info',
+        emit: 'callMethod',
+        payload: {
+          endpoint: 'music_service/rtlsdr_radio',
+          method: 'handleDeviceConflict',
+          data: {
+            action: 'queue',
+            operationType: requestedOperation
+          }
+        }
+      },
+      {
+        name: self.getI18nString('MODAL_BTN_CANCEL_REQUEST'),
+        class: 'btn btn-default',
+        emit: 'callMethod',
+        payload: {
+          endpoint: 'music_service/rtlsdr_radio',
+          method: 'handleDeviceConflict',
+          data: {
+            action: 'reject',
+            operationType: requestedOperation
+          }
+        }
+      }
+    ]
+  };
+  
+  self.commandRouter.broadcastMessage('openModal', modalData);
+};
+
+ControllerRtlsdrRadio.prototype.handleDeviceConflict = function(data) {
+  var self = this;
+  var defer = libQ.defer();
+  
+  var action = data.action;
+  var operationType = data.operationType;
+  
+  // Look up the pending operation
+  var operation = self.pendingOperations[operationType];
+  
+  if (!operation) {
+    self.logger.error('[RTL-SDR Radio] No pending operation found for type: ' + operationType);
+    defer.reject(new Error('No pending operation found'));
+    return defer.promise;
+  }
+  
+  self.logger.info('[RTL-SDR Radio] Device conflict resolution: ' + action + ' for ' + operationType);
+  
+  if (action === 'cancel') {
+    // User explicitly chose to cancel - clear queue to prevent old operations from executing
+    self.operationQueue = [];
+    self.logger.info('[RTL-SDR Radio] Queue cleared due to explicit cancel');
+    
+    // Cancel current operation and proceed with new one
+    self.stopCurrentOperation()
+      .then(function() {
+        // Wait for decoder processes to fully terminate and release USB device
+        // stopDecoder has 500ms timeout, so wait 600ms to ensure cleanup
+        self.logger.info('[RTL-SDR Radio] Waiting for device cleanup...');
+        setTimeout(function() {
+          // Resolve the pending operation's defer to proceed
+          operation.defer.resolve(true);
+          // Remove from pending operations
+          delete self.pendingOperations[operationType];
+          defer.resolve();
+        }, 600);
+      })
+      .fail(function(e) {
+        operation.defer.reject(e);
+        delete self.pendingOperations[operationType];
+        defer.reject(e);
+      });
+  } else if (action === 'queue') {
+    // Add to queue
+    self.operationQueue.push(operation);
+    // Remove from pending operations (now in queue)
+    delete self.pendingOperations[operationType];
+    self.logger.info('[RTL-SDR Radio] Operation queued: ' + operation.type);
+    
+    self.commandRouter.pushToastMessage(
+      'info',
+      self.getI18nString('TOAST_OPERATION_QUEUED'),
+      self.getI18nString('TOAST_OPERATION_QUEUED_MSG')
+    );
+    defer.resolve();
+  } else {
+    // Reject request
+    operation.defer.reject(new Error('User cancelled operation'));
+    delete self.pendingOperations[operationType];
+    defer.resolve();
+  }
+  
+  // Close modal
+  self.commandRouter.broadcastMessage('closeAllModals', '');
+  
+  return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.stopCurrentOperation = function() {
+  var self = this;
+  var defer = libQ.defer();
+  
+  self.logger.info('[RTL-SDR Radio] Stopping current operation: ' + self.deviceState);
+  
+  if (self.deviceState.startsWith('playing_')) {
+    // Stop playback
+    self.stop()
+      .then(function() {
+        self.setDeviceState('idle');
+        defer.resolve();
+      })
+      .fail(function(e) {
+        defer.reject(e);
+      });
+  } else if (self.deviceState.startsWith('scanning_')) {
+    // Kill scan process
+    self.stopDecoder();
+    self.setDeviceState('idle');
+    defer.resolve();
+  } else {
+    // Already idle
+    defer.resolve();
+  }
+  
+  return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.setDeviceState = function(newState) {
+  var self = this;
+  
+  var oldState = self.deviceState;
+  self.deviceState = newState;
+  
+  self.logger.info('[RTL-SDR Radio] Device state: ' + oldState + ' -> ' + newState);
+  
+  // If device became idle, process queue
+  if (newState === 'idle' && self.operationQueue.length > 0) {
+    self.processOperationQueue();
+  }
+};
+
+ControllerRtlsdrRadio.prototype.processOperationQueue = function() {
+  var self = this;
+  
+  if (self.operationQueue.length === 0) {
+    return;
+  }
+  
+  // Remove expired operations
+  var now = Date.now();
+  self.operationQueue = self.operationQueue.filter(function(op) {
+    var isExpired = (now - op.timestamp) > self.QUEUE_TIMEOUT;
+    if (isExpired) {
+      self.logger.info('[RTL-SDR Radio] Operation expired: ' + op.type);
+      op.defer.reject(new Error('Operation timed out in queue'));
+    }
+    return !isExpired;
+  });
+  
+  if (self.operationQueue.length === 0) {
+    return;
+  }
+  
+  // Process first operation (FIFO)
+  var nextOp = self.operationQueue.shift();
+  
+  self.logger.info('[RTL-SDR Radio] Processing queued operation: ' + nextOp.type);
+  
+  self.commandRouter.pushToastMessage(
+    'info',
+    self.getI18nString('TOAST_STARTING_QUEUED'),
+    self.getI18nString('TOAST_DEVICE_AVAILABLE')
+  );
+  
+  // Resolve the defer to allow operation to proceed
+  nextOp.defer.resolve(true);
 };
 
 ControllerRtlsdrRadio.prototype.handleBrowseUri = function(curUri) {
@@ -374,15 +689,26 @@ ControllerRtlsdrRadio.prototype.playFmStation = function(frequency, stationName)
     return defer.promise;
   }
   
-  // If decoder is still running, wait for cleanup to complete
-  if (self.decoderProcess !== null) {
-    self.logger.info('[RTL-SDR Radio] Waiting for previous station cleanup...');
-    setTimeout(function() {
-      self.startFmPlayback(freq, stationName, defer);
-    }, 600); // Wait slightly longer than stopDecoder timeout (500ms)
-  } else {
-    self.startFmPlayback(freq, stationName, defer);
-  }
+  // Check device availability
+  self.checkDeviceAvailable('play_fm', { frequency: freq, stationName: stationName })
+    .then(function() {
+      // Device is available, proceed with playback
+      self.setDeviceState('playing_fm');
+      
+      // If decoder is still running, wait for cleanup to complete
+      if (self.decoderProcess !== null) {
+        self.logger.info('[RTL-SDR Radio] Waiting for previous station cleanup...');
+        setTimeout(function() {
+          self.startFmPlayback(freq, stationName, defer);
+        }, 600); // Wait slightly longer than stopDecoder timeout (500ms)
+      } else {
+        self.startFmPlayback(freq, stationName, defer);
+      }
+    })
+    .fail(function(e) {
+      self.logger.info('[RTL-SDR Radio] FM playback cancelled or rejected: ' + e);
+      defer.reject(e);
+    });
   
   return defer.promise;
 };
@@ -466,6 +792,10 @@ ControllerRtlsdrRadio.prototype.startFmPlayback = function(freq, stationName, de
 ControllerRtlsdrRadio.prototype.stop = function() {
   var self = this;
   self.stopDecoder();
+  
+  // Reset device state to idle
+  self.setDeviceState('idle');
+  
   // Get current state and just change status to pause
   // Keep all track info for resume
   var currentState = self.commandRouter.stateMachine.getState();
@@ -501,25 +831,43 @@ ControllerRtlsdrRadio.prototype.resume = function() {
 
 ControllerRtlsdrRadio.prototype.stopDecoder = function() {
   var self = this;
-  if (self.decoderProcess !== null) {
-    self.logger.info('[RTL-SDR Radio] Stopping decoder process');
-    self.intentionalStop = true;
-    try {
-      // Kill FM processes
-      exec('sudo pkill -f "rtl_fm -f"');
-      exec('sudo pkill -f "aplay -D volumio"');
-      // Kill DAB processes
-      exec('sudo pkill -f "dab-rtlsdr-3"');
+  
+  self.logger.info('[RTL-SDR Radio] Stopping all processes');
+  self.intentionalStop = true;
+  
+  try {
+    // Kill FM playback processes
+    exec('sudo pkill -f "rtl_fm -f"');
+    exec('sudo pkill -f "aplay -D volumio"');
+    
+    // Kill DAB playback processes
+    exec('sudo pkill -f "dab-rtlsdr-3"');
+    
+    // Kill FM scan processes
+    exec('sudo pkill -f "rtl_power"');
+    
+    // Kill DAB scan processes
+    exec('sudo pkill -f "dab-scanner-3"');
+    
+    // Kill stored process reference if exists
+    if (self.decoderProcess !== null) {
       self.decoderProcess.kill('SIGTERM');
-    } catch (e) {
-      self.logger.error('[RTL-SDR Radio] Error stopping decoder: ' + e);
     }
-    // Wait for processes to fully terminate
-    setTimeout(function() {
-      self.decoderProcess = null;
-      // DON'T clear currentStation - needed for resume
-    }, 500);
+    
+    // Kill scan process reference if exists
+    if (self.scanProcess !== null) {
+      self.scanProcess.kill('SIGTERM');
+    }
+  } catch (e) {
+    self.logger.error('[RTL-SDR Radio] Error stopping processes: ' + e);
   }
+  
+  // Wait for processes to fully terminate
+  setTimeout(function() {
+    self.decoderProcess = null;
+    self.scanProcess = null;
+    // DON'T clear currentStation - needed for resume
+  }, 500);
 };
 
 ControllerRtlsdrRadio.prototype.saveManualFrequency = function(data) {
@@ -641,50 +989,69 @@ ControllerRtlsdrRadio.prototype.scanFm = function() {
   var self = this;
   var defer = libQ.defer();
   
-  self.logger.info('[RTL-SDR Radio] Starting FM scan...');
-  self.commandRouter.pushToastMessage('info', 'FM Radio', 'Scanning for stations (takes ~10 seconds)...');
-  
-  // Generate unique temp file name
-  var scanFile = '/tmp/fm_scan_' + Date.now() + '.csv';
-  
-  // rtl_power command:
-  // -f 88M:108M:125k = Scan 88-108 MHz in 125kHz steps (160 bins)
-  // -i 10 = Integrate for 10 seconds
-  // -1 = Single-shot mode (exit after one scan)
-  var command = 'rtl_power -f 88M:108M:125k -i 10 -1 ' + scanFile;
-  
-  self.logger.info('[RTL-SDR Radio] Scan command: ' + command);
-  
-  exec(command, { timeout: 30000 }, function(error, stdout, stderr) {
-    if (error) {
-      self.logger.error('[RTL-SDR Radio] Scan failed: ' + error);
-      self.commandRouter.pushToastMessage('error', 'FM Radio', 'Scan failed: ' + error.message);
-      defer.reject(error);
-      return;
-    }
-    
-    self.logger.info('[RTL-SDR Radio] Scan complete, parsing results...');
-    
-    // Parse scan results
-    self.parseScanResults(scanFile)
-      .then(function(stations) {
-        self.logger.info('[RTL-SDR Radio] Found ' + stations.length + ' FM stations');
+  // Check device availability
+  self.checkDeviceAvailable('scan_fm', {})
+    .then(function() {
+      // Device is available, proceed with scan
+      self.setDeviceState('scanning_fm');
+      
+      self.logger.info('[RTL-SDR Radio] Starting FM scan...');
+      self.commandRouter.pushToastMessage('info', self.getI18nString('FM_RADIO'), self.getI18nString('TOAST_FM_SCANNING'));
+      
+      // Generate unique temp file name
+      var scanFile = '/tmp/fm_scan_' + Date.now() + '.csv';
+      
+      // rtl_power command:
+      // -f 88M:108M:125k = Scan 88-108 MHz in 125kHz steps (160 bins)
+      // -i 10 = Integrate for 10 seconds
+      // -1 = Single-shot mode (exit after one scan)
+      var command = 'rtl_power -f 88M:108M:125k -i 10 -1 ' + scanFile;
+      
+      self.logger.info('[RTL-SDR Radio] Scan command: ' + command);
+      
+      self.scanProcess = exec(command, { timeout: 30000 }, function(error, stdout, stderr) {
+        if (error) {
+          self.logger.error('[RTL-SDR Radio] Scan failed: ' + error);
+          self.commandRouter.pushToastMessage('error', self.getI18nString('FM_RADIO'), 
+            self.getI18nStringFormatted('TOAST_SCAN_FAILED', error.message));
+          self.setDeviceState('idle');
+          self.scanProcess = null;
+          defer.reject(error);
+          return;
+        }
         
-        // Save to database
-        self.stationsDb.fm = stations;
-        self.saveStations();
+        self.logger.info('[RTL-SDR Radio] Scan complete, parsing results...');
         
-        self.commandRouter.pushToastMessage('success', 'FM Radio', 
-          'Found ' + stations.length + ' stations');
-        
-        defer.resolve(stations);
-      })
-      .fail(function(e) {
-        self.logger.error('[RTL-SDR Radio] Failed to parse scan results: ' + e);
-        self.commandRouter.pushToastMessage('error', 'FM Radio', 'Failed to parse results');
-        defer.reject(e);
+        // Parse scan results
+        self.parseScanResults(scanFile)
+          .then(function(stations) {
+            self.logger.info('[RTL-SDR Radio] Found ' + stations.length + ' FM stations');
+            
+            // Save to database
+            self.stationsDb.fm = stations;
+            self.saveStations();
+            
+            self.commandRouter.pushToastMessage('success', self.getI18nString('FM_RADIO'), 
+              self.getI18nStringFormatted('TOAST_FM_SCAN_COMPLETE', stations.length));
+            
+            self.setDeviceState('idle');
+            self.scanProcess = null;
+            defer.resolve(stations);
+          })
+          .fail(function(e) {
+            self.logger.error('[RTL-SDR Radio] Failed to parse scan results: ' + e);
+            self.commandRouter.pushToastMessage('error', self.getI18nString('FM_RADIO'), 
+              self.getI18nString('TOAST_PARSE_FAILED'));
+            self.setDeviceState('idle');
+            self.scanProcess = null;
+            defer.reject(e);
+          });
       });
-  });
+    })
+    .fail(function(e) {
+      self.logger.info('[RTL-SDR Radio] FM scan cancelled or rejected: ' + e);
+      defer.reject(e);
+    });
   
   return defer.promise;
 };
@@ -836,53 +1203,72 @@ ControllerRtlsdrRadio.prototype.scanDab = function() {
   var self = this;
   var defer = libQ.defer();
   
-  self.logger.info('[RTL-SDR Radio] Starting DAB scan...');
-  self.commandRouter.pushToastMessage('info', 'DAB Radio', 'Scanning for DAB stations (takes 30-60 seconds)...');
-  
-  // Generate unique temp file name
-  var scanFile = '/tmp/dab_scan_' + Date.now() + '.json';
-  
-  // Get DAB gain from config
-  var dabGain = self.config.get('dab_gain', 80);
-  
-  // dab-scanner-3 command:
-  // -B BAND_III = Scan Band III (European DAB standard, 174-240 MHz)
-  // -G <gain> = Tuner gain (0-49.6, higher = more sensitive)
-  // -j = JSON output format
-  var command = 'dab-scanner-3 -B BAND_III -G ' + dabGain + ' -j > ' + scanFile;
-  
-  self.logger.info('[RTL-SDR Radio] DAB scan command: ' + command);
-  
-  exec(command, { timeout: 120000 }, function(error, stdout, stderr) {
-    if (error) {
-      self.logger.error('[RTL-SDR Radio] DAB scan failed: ' + error);
-      self.commandRouter.pushToastMessage('error', 'DAB Radio', 'Scan failed: ' + error.message);
-      defer.reject(error);
-      return;
-    }
-    
-    self.logger.info('[RTL-SDR Radio] DAB scan complete, parsing results...');
-    
-    // Parse scan results
-    self.parseDabScanResults(scanFile)
-      .then(function(stations) {
-        self.logger.info('[RTL-SDR Radio] Found ' + stations.length + ' DAB services');
+  // Check device availability
+  self.checkDeviceAvailable('scan_dab', {})
+    .then(function() {
+      // Device is available, proceed with scan
+      self.setDeviceState('scanning_dab');
+      
+      self.logger.info('[RTL-SDR Radio] Starting DAB scan...');
+      self.commandRouter.pushToastMessage('info', self.getI18nString('DAB_RADIO'), self.getI18nString('TOAST_DAB_SCANNING'));
+      
+      // Generate unique temp file name
+      var scanFile = '/tmp/dab_scan_' + Date.now() + '.json';
+      
+      // Get DAB gain from config
+      var dabGain = self.config.get('dab_gain', 80);
+      
+      // dab-scanner-3 command:
+      // -B BAND_III = Scan Band III (European DAB standard, 174-240 MHz)
+      // -G <gain> = Tuner gain (0-49.6, higher = more sensitive)
+      // -j = JSON output format
+      var command = 'dab-scanner-3 -B BAND_III -G ' + dabGain + ' -j > ' + scanFile;
+      
+      self.logger.info('[RTL-SDR Radio] DAB scan command: ' + command);
+      
+      self.scanProcess = exec(command, { timeout: 120000 }, function(error, stdout, stderr) {
+        if (error) {
+          self.logger.error('[RTL-SDR Radio] DAB scan failed: ' + error);
+          self.commandRouter.pushToastMessage('error', self.getI18nString('DAB_RADIO'), 
+            self.getI18nStringFormatted('TOAST_SCAN_FAILED', error.message));
+          self.setDeviceState('idle');
+          self.scanProcess = null;
+          defer.reject(error);
+          return;
+        }
         
-        // Save to database
-        self.stationsDb.dab = stations;
-        self.saveStations();
+        self.logger.info('[RTL-SDR Radio] DAB scan complete, parsing results...');
         
-        self.commandRouter.pushToastMessage('success', 'DAB Radio', 
-          'Found ' + stations.length + ' services');
-        
-        defer.resolve(stations);
-      })
-      .fail(function(e) {
-        self.logger.error('[RTL-SDR Radio] Failed to parse DAB scan results: ' + e);
-        self.commandRouter.pushToastMessage('error', 'DAB Radio', 'Failed to parse results');
-        defer.reject(e);
+        // Parse scan results
+        self.parseDabScanResults(scanFile)
+          .then(function(stations) {
+            self.logger.info('[RTL-SDR Radio] Found ' + stations.length + ' DAB services');
+            
+            // Save to database
+            self.stationsDb.dab = stations;
+            self.saveStations();
+            
+            self.commandRouter.pushToastMessage('success', self.getI18nString('DAB_RADIO'), 
+              self.getI18nStringFormatted('TOAST_DAB_SCAN_COMPLETE', stations.length));
+            
+            self.setDeviceState('idle');
+            self.scanProcess = null;
+            defer.resolve(stations);
+          })
+          .fail(function(e) {
+            self.logger.error('[RTL-SDR Radio] Failed to parse DAB scan results: ' + e);
+            self.commandRouter.pushToastMessage('error', self.getI18nString('DAB_RADIO'), 
+              self.getI18nString('TOAST_PARSE_FAILED'));
+            self.setDeviceState('idle');
+            self.scanProcess = null;
+            defer.reject(e);
+          });
       });
-  });
+    })
+    .fail(function(e) {
+      self.logger.info('[RTL-SDR Radio] DAB scan cancelled or rejected: ' + e);
+      defer.reject(e);
+    });
   
   return defer.promise;
 };
@@ -993,15 +1379,26 @@ ControllerRtlsdrRadio.prototype.playDabStation = function(channel, serviceName, 
   
   self.logger.info('[RTL-SDR Radio] Playing DAB station: ' + serviceName + ' on channel ' + channel);
   
-  // If decoder is still running, wait for cleanup to complete
-  if (self.decoderProcess !== null) {
-    self.logger.info('[RTL-SDR Radio] Waiting for previous station cleanup...');
-    setTimeout(function() {
-      self.startDabPlayback(channel, serviceName, stationTitle, defer);
-    }, 600); // Wait slightly longer than stopDecoder timeout (500ms)
-  } else {
-    self.startDabPlayback(channel, serviceName, stationTitle, defer);
-  }
+  // Check device availability
+  self.checkDeviceAvailable('play_dab', { channel: channel, serviceName: serviceName, stationTitle: stationTitle })
+    .then(function() {
+      // Device is available, proceed with playback
+      self.setDeviceState('playing_dab');
+      
+      // If decoder is still running, wait for cleanup to complete
+      if (self.decoderProcess !== null) {
+        self.logger.info('[RTL-SDR Radio] Waiting for previous station cleanup...');
+        setTimeout(function() {
+          self.startDabPlayback(channel, serviceName, stationTitle, defer);
+        }, 600); // Wait slightly longer than stopDecoder timeout (500ms)
+      } else {
+        self.startDabPlayback(channel, serviceName, stationTitle, defer);
+      }
+    })
+    .fail(function(e) {
+      self.logger.info('[RTL-SDR Radio] DAB playback cancelled or rejected: ' + e);
+      defer.reject(e);
+    });
   
   return defer.promise;
 };
