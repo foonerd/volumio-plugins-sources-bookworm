@@ -69,19 +69,93 @@ ControllerRtlsdrRadio.prototype.onStop = function() {
   var self = this;
   var defer = libQ.defer();
   
-  self.logger.info('[RTL-SDR Radio] Stopping plugin');
+  self.logger.info('[RTL-SDR Radio] Stopping plugin - killing all RTL-SDR processes');
   
-  self.stopDecoder();
+  // Set intentional stop flag
+  self.intentionalStop = true;
+  
+  // Kill all RTL-SDR processes synchronously
+  try {
+    var execSync = require('child_process').execSync;
+    
+    // Kill all processes (playback and scan)
+    execSync('sudo pkill -9 -f "rtl_fm"', { timeout: 2000 });
+    execSync('sudo pkill -9 -f "rtl_power"', { timeout: 2000 });
+    execSync('sudo pkill -9 -f "dab-rtlsdr-3"', { timeout: 2000 });
+    execSync('sudo pkill -9 -f "dab-scanner-3"', { timeout: 2000 });
+    execSync('sudo pkill -9 -f "aplay -D volumio"', { timeout: 2000 });
+    
+    self.logger.info('[RTL-SDR Radio] All RTL-SDR processes killed');
+  } catch (e) {
+    // pkill returns error if no processes found - this is OK
+    self.logger.info('[RTL-SDR Radio] Process cleanup complete (some processes may not have been running)');
+  }
+  
+  // Clear state
+  self.decoderProcess = null;
+  self.scanProcess = null;
+  self.deviceState = 'idle';
+  
+  // Remove browse source
   self.commandRouter.volumioRemoveToBrowseSources('FM/DAB Radio');
   
-  // Wait for decoder processes to fully terminate
-  // stopDecoder has 500ms timeout, so wait 600ms to ensure cleanup
-  setTimeout(function() {
-    self.logger.info('[RTL-SDR Radio] Plugin stopped');
-    defer.resolve();
-  }, 600);
+  self.logger.info('[RTL-SDR Radio] Plugin stopped');
+  defer.resolve();
   
   return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.onUnload = function() {
+  var self = this;
+  
+  self.logger.info('[RTL-SDR Radio] Unloading plugin - final cleanup');
+  
+  // Use same cleanup as onStop
+  try {
+    var execSync = require('child_process').execSync;
+    execSync('sudo pkill -9 -f "rtl_fm"', { timeout: 2000 });
+    execSync('sudo pkill -9 -f "rtl_power"', { timeout: 2000 });
+    execSync('sudo pkill -9 -f "dab-rtlsdr-3"', { timeout: 2000 });
+    execSync('sudo pkill -9 -f "dab-scanner-3"', { timeout: 2000 });
+    execSync('sudo pkill -9 -f "aplay -D volumio"', { timeout: 2000 });
+  } catch (e) {
+    // Ignore errors - processes may already be gone
+  }
+  
+  self.logger.info('[RTL-SDR Radio] Plugin unloaded');
+  
+  return libQ.resolve();
+};
+
+ControllerRtlsdrRadio.prototype.onVolumioStop = function() {
+  var self = this;
+  
+  self.logger.info('[RTL-SDR Radio] Volumio stopping - killing all RTL-SDR processes');
+  
+  // Set intentional stop flag
+  self.intentionalStop = true;
+  
+  // Use synchronous kill with SIGKILL for guaranteed termination
+  try {
+    var execSync = require('child_process').execSync;
+    execSync('sudo pkill -9 -f "rtl_fm"', { timeout: 2000 });
+    execSync('sudo pkill -9 -f "rtl_power"', { timeout: 2000 });
+    execSync('sudo pkill -9 -f "dab-rtlsdr-3"', { timeout: 2000 });
+    execSync('sudo pkill -9 -f "dab-scanner-3"', { timeout: 2000 });
+    execSync('sudo pkill -9 -f "aplay -D volumio"', { timeout: 2000 });
+    self.logger.info('[RTL-SDR Radio] All processes terminated');
+  } catch (e) {
+    // Ignore errors
+  }
+  
+  // Clear state
+  self.decoderProcess = null;
+  self.scanProcess = null;
+  self.deviceState = 'idle';
+  
+  self.logger.info('[RTL-SDR Radio] Ready for Volumio restart');
+  
+  return libQ.resolve();
 };
 
 ControllerRtlsdrRadio.prototype.loadI18nStrings = function() {
@@ -358,11 +432,19 @@ ControllerRtlsdrRadio.prototype.handleDeviceConflict = function(data) {
     self.operationQueue = [];
     self.logger.info('[RTL-SDR Radio] Queue cleared due to explicit cancel');
     
+    // Inform user that we're stopping the current operation
+    self.commandRouter.pushToastMessage(
+      'info',
+      self.getI18nString('PLUGIN_NAME'),
+      self.getI18nString('TOAST_STOPPING_OPERATION')
+    );
+    
     // Cancel current operation and proceed with new one
     self.stopCurrentOperation()
       .then(function() {
-        // Wait for decoder processes to fully terminate and release USB device
-        // stopDecoder has 500ms timeout, so wait 600ms to ensure cleanup
+        // Wait for processes to fully terminate and release USB device
+        // Processes need time for graceful shutdown (rtl_power finishes scan pass)
+        // stopDecoder has 500ms timeout, add extra margin for graceful shutdown
         self.logger.info('[RTL-SDR Radio] Waiting for device cleanup...');
         setTimeout(function() {
           // Resolve the pending operation's defer to proceed
@@ -370,7 +452,7 @@ ControllerRtlsdrRadio.prototype.handleDeviceConflict = function(data) {
           // Remove from pending operations
           delete self.pendingOperations[operationType];
           defer.resolve();
-        }, 600);
+        }, 1200);
       })
       .fail(function(e) {
         operation.defer.reject(e);
@@ -500,8 +582,20 @@ ControllerRtlsdrRadio.prototype.handleBrowseUri = function(curUri) {
         defer.resolve(response);
       })
       .fail(function(e) {
-        self.logger.error('[RTL-SDR Radio] Rescan failed: ' + e);
-        defer.reject(e);
+        // Only log and reject if stop was not intentional
+        if (!self.intentionalStop) {
+          self.logger.error('[RTL-SDR Radio] Rescan failed: ' + e);
+          defer.reject(e);
+        } else {
+          // Canceled intentionally, return current browse state
+          self.handleBrowseUri('rtlsdr')
+            .then(function(response) {
+              defer.resolve(response);
+            })
+            .fail(function(err) {
+              defer.reject(err);
+            });
+        }
       });
     return defer.promise;
   }
@@ -517,8 +611,20 @@ ControllerRtlsdrRadio.prototype.handleBrowseUri = function(curUri) {
         defer.resolve(response);
       })
       .fail(function(e) {
-        self.logger.error('[RTL-SDR Radio] DAB rescan failed: ' + e);
-        defer.reject(e);
+        // Only log and reject if stop was not intentional
+        if (!self.intentionalStop) {
+          self.logger.error('[RTL-SDR Radio] DAB rescan failed: ' + e);
+          defer.reject(e);
+        } else {
+          // Canceled intentionally, return current browse state
+          self.handleBrowseUri('rtlsdr')
+            .then(function(response) {
+              defer.resolve(response);
+            })
+            .fail(function(err) {
+              defer.reject(err);
+            });
+        }
       });
     return defer.promise;
   }
@@ -726,9 +832,6 @@ ControllerRtlsdrRadio.prototype.startFmPlayback = function(freq, stationName, de
                 ' | aplay -D volumio -f S16_LE -r 48000 -c 1';
   
   self.logger.info('[RTL-SDR Radio] Command: ' + command);
-  
-  // Clear intentional stop flag when starting new playback
-  self.intentionalStop = false;
   
   // Start decoder process
   self.decoderProcess = exec(command, function(error, stdout, stderr) {
@@ -1011,9 +1114,12 @@ ControllerRtlsdrRadio.prototype.scanFm = function() {
       
       self.scanProcess = exec(command, { timeout: 30000 }, function(error, stdout, stderr) {
         if (error) {
-          self.logger.error('[RTL-SDR Radio] Scan failed: ' + error);
-          self.commandRouter.pushToastMessage('error', self.getI18nString('FM_RADIO'), 
-            self.getI18nStringFormatted('TOAST_SCAN_FAILED', error.message));
+          // Only log and show error if stop was not intentional
+          if (!self.intentionalStop) {
+            self.logger.error('[RTL-SDR Radio] Scan failed: ' + error);
+            self.commandRouter.pushToastMessage('error', self.getI18nString('FM_RADIO'), 
+              self.getI18nStringFormatted('TOAST_SCAN_FAILED', error.message));
+          }
           self.setDeviceState('idle');
           self.scanProcess = null;
           defer.reject(error);
@@ -1228,9 +1334,12 @@ ControllerRtlsdrRadio.prototype.scanDab = function() {
       
       self.scanProcess = exec(command, { timeout: 120000 }, function(error, stdout, stderr) {
         if (error) {
-          self.logger.error('[RTL-SDR Radio] DAB scan failed: ' + error);
-          self.commandRouter.pushToastMessage('error', self.getI18nString('DAB_RADIO'), 
-            self.getI18nStringFormatted('TOAST_SCAN_FAILED', error.message));
+          // Only log and show error if stop was not intentional
+          if (!self.intentionalStop) {
+            self.logger.error('[RTL-SDR Radio] DAB scan failed: ' + error);
+            self.commandRouter.pushToastMessage('error', self.getI18nString('DAB_RADIO'), 
+              self.getI18nStringFormatted('TOAST_SCAN_FAILED', error.message));
+          }
           self.setDeviceState('idle');
           self.scanProcess = null;
           defer.reject(error);
@@ -1425,7 +1534,6 @@ ControllerRtlsdrRadio.prototype.startDabPlayback = function(channel, serviceName
   self.logger.info('[RTL-SDR Radio] DAB command: ' + command);
   
   // Clear intentional stop flag when starting new playback
-  self.intentionalStop = false;
   
   // Start decoder process
   self.decoderProcess = exec(command, function(error, stdout, stderr) {

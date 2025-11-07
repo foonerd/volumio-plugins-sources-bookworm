@@ -44,6 +44,7 @@
   "TOAST_OPERATION_QUEUED_MSG": "Operation will start when device becomes available (60s timeout)",
   "TOAST_STARTING_QUEUED": "Starting Queued Operation",
   "TOAST_DEVICE_AVAILABLE": "RTL-SDR device is now available",
+  "TOAST_STOPPING_OPERATION": "Stopping current operation, please wait...",
   "FM_RADIO": "FM Radio",
   "DAB_RADIO": "DAB Radio"
 }
