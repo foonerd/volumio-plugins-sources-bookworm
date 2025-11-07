@@ -5,6 +5,9 @@ var fs = require('fs-extra');
 var config = new (require('v-conf'))();
 var exec = require('child_process').exec;
 var execSync = require('child_process').execSync;
+var express = require('express');
+var bodyParser = require('body-parser');
+var path = require('path');
 
 module.exports = ControllerRtlsdrRadio;
 
@@ -25,6 +28,11 @@ function ControllerRtlsdrRadio(context) {
   self.deviceState = 'idle'; // idle, scanning_fm, scanning_dab, playing_fm, playing_dab
   self.operationQueue = []; // Queue of pending operations
   self.QUEUE_TIMEOUT = 60000; // 60 seconds
+  
+  // Express server for station management web interface
+  self.expressApp = null;
+  self.expressServer = null;
+  self.managementPort = 3456;
 }
 
 ControllerRtlsdrRadio.prototype.onVolumioStart = function() {
@@ -51,6 +59,9 @@ ControllerRtlsdrRadio.prototype.onStart = function() {
     })
     .then(function() {
       return self.loadStations();
+    })
+    .then(function() {
+      return self.startManagementServer();
     })
     .then(function() {
       self.addToBrowseSources();
@@ -99,6 +110,18 @@ ControllerRtlsdrRadio.prototype.onStop = function() {
   // Remove browse source
   self.commandRouter.volumioRemoveToBrowseSources('FM/DAB Radio');
   
+  // Stop management server
+  if (self.expressServer) {
+    try {
+      self.expressServer.close();
+      self.expressApp = null;
+      self.expressServer = null;
+      self.logger.info('[RTL-SDR Radio] Management server stopped');
+    } catch (e) {
+      self.logger.error('[RTL-SDR Radio] Error stopping management server: ' + e);
+    }
+  }
+  
   self.logger.info('[RTL-SDR Radio] Plugin stopped');
   defer.resolve();
   
@@ -125,6 +148,121 @@ ControllerRtlsdrRadio.prototype.onUnload = function() {
   self.logger.info('[RTL-SDR Radio] Plugin unloaded');
   
   return libQ.resolve();
+};
+
+// ===============================
+// STATION MANAGEMENT WEB SERVER
+// ===============================
+
+ControllerRtlsdrRadio.prototype.startManagementServer = function() {
+  var self = this;
+  var defer = libQ.defer();
+  
+  try {
+    // Initialize Express app
+    self.expressApp = express();
+    self.expressApp.use(bodyParser.json());
+    self.expressApp.use(bodyParser.urlencoded({ extended: true }));
+    
+    // Serve static HTML page
+    self.expressApp.get('/', function(req, res) {
+      res.sendFile(path.join(__dirname, 'manage.html'));
+    });
+    
+    self.expressApp.get('/manage', function(req, res) {
+      res.sendFile(path.join(__dirname, 'manage.html'));
+    });
+    
+    // API: Get all stations
+    self.expressApp.get('/api/stations', function(req, res) {
+      try {
+        res.json({
+          fm: self.stationsDb.fm || [],
+          dab: self.stationsDb.dab || []
+        });
+      } catch (e) {
+        self.logger.error('[RTL-SDR Radio] Error getting stations: ' + e);
+        res.status(500).json({ error: 'Failed to get stations' });
+      }
+    });
+    
+    // API: Save stations
+    self.expressApp.post('/api/stations', function(req, res) {
+      try {
+        var data = req.body;
+        
+        if (!data.fm || !data.dab) {
+          return res.status(400).json({ error: 'Invalid data format' });
+        }
+        
+        // Update database
+        self.stationsDb.fm = data.fm;
+        self.stationsDb.dab = data.dab;
+        
+        // Save to disk (synchronous)
+        self.saveStations();
+        self.logger.info('[RTL-SDR Radio] Stations updated via web interface');
+        res.json({ success: true });
+        
+      } catch (e) {
+        self.logger.error('[RTL-SDR Radio] Error processing station update: ' + e);
+        res.status(500).json({ error: 'Failed to process update' });
+      }
+    });
+    
+    // API: Purge deleted stations permanently
+    self.expressApp.post('/api/stations/purge', function(req, res) {
+      try {
+        // Remove all stations where deleted === true
+        self.stationsDb.fm = self.stationsDb.fm.filter(function(station) {
+          return !station.deleted;
+        });
+        
+        self.stationsDb.dab = self.stationsDb.dab.filter(function(station) {
+          return !station.deleted;
+        });
+        
+        // Save to disk
+        self.saveStations();
+        self.logger.info('[RTL-SDR Radio] Purged deleted stations via web interface');
+        res.json({ success: true });
+        
+      } catch (e) {
+        self.logger.error('[RTL-SDR Radio] Error purging stations: ' + e);
+        res.status(500).json({ error: 'Failed to purge stations' });
+      }
+    });
+    
+    // Start server
+    self.expressServer = self.expressApp.listen(self.managementPort, function() {
+      self.logger.info('[RTL-SDR Radio] Management server started on port ' + self.managementPort);
+      defer.resolve();
+    });
+    
+    // Handle server errors
+    self.expressServer.on('error', function(e) {
+      if (e.code === 'EADDRINUSE') {
+        self.logger.error('[RTL-SDR Radio] Port ' + self.managementPort + ' already in use');
+        defer.reject(new Error('Management server port already in use'));
+      } else {
+        self.logger.error('[RTL-SDR Radio] Management server error: ' + e);
+        defer.reject(e);
+      }
+    });
+    
+  } catch (e) {
+    self.logger.error('[RTL-SDR Radio] Failed to start management server: ' + e);
+    defer.reject(e);
+  }
+  
+  return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.getManagementUrl = function() {
+  var self = this;
+  // Get hostname from Volumio
+  var hostname = self.commandRouter.sharedVars.get('system.name') || 'volumio';
+  return 'http://' + hostname + '.local:' + self.managementPort;
 };
 
 ControllerRtlsdrRadio.prototype.onVolumioStop = function() {
@@ -240,6 +378,30 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
     // Populate manual playback with saved frequency
     var manualPlayback = uiconf.sections[1];
     manualPlayback.content[0].value = self.config.get('manual_fm_frequency', '98.8');
+    
+    // Add web management interface section
+    var webManagementSection = {
+      id: 'web_management',
+      element: 'section',
+      label: 'Web Station Management',
+      icon: 'fa-edit',
+      description: 'Use the web interface for advanced station management with full editing capabilities',
+      content: [
+        {
+          id: 'management_info',
+          element: 'message',
+          label: 'Access the web-based station manager for:',
+          value: 'Rename stations, manage favorites, hide/unhide, delete stations, and search - all with a mobile-friendly interface'
+        },
+        {
+          id: 'management_url',
+          element: 'message',
+          label: 'Web Interface URL:',
+          value: self.getManagementUrl()
+        }
+      ]
+    };
+    uiconf.sections.splice(2, 0, webManagementSection);
     
     // Add station management sections
     self.addStationManagementSections(uiconf);
@@ -3191,7 +3353,11 @@ ControllerRtlsdrRadio.prototype.showRenameModal = function(data) {
   
   var modalData = {
     title: 'Rename Station',
-    message: 'Current name: ' + currentName,
+    message: 'Current name: ' + currentName + 
+             '<br><br><input type="text" id="rename_input" class="form-control" ' +
+             'placeholder="Enter new station name" value="' + 
+             (stationInfo.station.customName || '').replace(/"/g, '&quot;') + '" ' +
+             'onkeypress="if(event.keyCode==13) document.querySelector(\'.btn-info\').click()" />',
     size: 'md',
     buttons: [
       {
@@ -3219,19 +3385,11 @@ ControllerRtlsdrRadio.prototype.showRenameModal = function(data) {
         emit: 'callMethod',
         payload: {
           endpoint: 'music_service/rtlsdr_radio',
-          method: 'processRename',
+          method: 'processRenameWithJs',
           data: {
             uri: uri
           }
         }
-      }
-    ],
-    inputs: [
-      {
-        id: 'new_name',
-        type: 'text',
-        placeholder: 'Enter new station name',
-        value: stationInfo.station.customName || ''
       }
     ]
   };
@@ -3824,9 +3982,17 @@ ControllerRtlsdrRadio.prototype.scanDab = function() {
       
       self.logger.info('[RTL-SDR Radio] DAB scan command: ' + command);
       
-      self.scanProcess = exec(command, { timeout: 120000 }, function(error, stdout, stderr) {
-        if (error) {
-          // Only log and show error if stop was not intentional
+      self.scanProcess = exec(command, { timeout: 300000 }, function(error, stdout, stderr) {
+        // Check if scan file was created (scanner may return error code but still produce valid output)
+        var scanFileExists = false;
+        try {
+          scanFileExists = fs.existsSync(scanFile) && fs.statSync(scanFile).size > 0;
+        } catch (e) {
+          scanFileExists = false;
+        }
+        
+        if (error && !scanFileExists) {
+          // Only reject if scan file was not created
           if (!self.intentionalStop) {
             self.logger.error('[RTL-SDR Radio] DAB scan failed: ' + error);
             self.commandRouter.pushToastMessage('error', self.getI18nString('DAB_RADIO'), 
@@ -3838,9 +4004,14 @@ ControllerRtlsdrRadio.prototype.scanDab = function() {
           return;
         }
         
-        self.logger.info('[RTL-SDR Radio] DAB scan complete, parsing results...');
+        // Log warning if error occurred but scan file exists
+        if (error && scanFileExists) {
+          self.logger.info('[RTL-SDR Radio] DAB scanner completed with warnings (non-zero exit code), but scan file created successfully');
+        } else {
+          self.logger.info('[RTL-SDR Radio] DAB scan complete, parsing results...');
+        }
         
-        // Parse scan results
+        // Parse scan results (whether error occurred or not, as long as file exists)
         self.parseDabScanResults(scanFile)
           .then(function(stations) {
             self.logger.info('[RTL-SDR Radio] Found ' + stations.length + ' DAB services');
@@ -4114,7 +4285,20 @@ ControllerRtlsdrRadio.prototype.startDabPlayback = function(channel, serviceName
 ControllerRtlsdrRadio.prototype.showFmManagement = function() {
   var self = this;
   
+  var managementUrl = self.getManagementUrl();
   var items = [];
+  
+  // Add web management link at top
+  items.push({
+    service: 'rtlsdr_radio',
+    type: 'item-no-menu',
+    title: 'Open Web Management Interface',
+    artist: 'Full featured station editor',
+    album: managementUrl,
+    albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/radio.svg',
+    icon: 'fa fa-external-link',
+    uri: managementUrl
+  });
   
   if (self.stationsDb.fm) {
     self.stationsDb.fm.forEach(function(station) {
@@ -4138,7 +4322,7 @@ ControllerRtlsdrRadio.prototype.showFmManagement = function() {
     });
   }
   
-  if (items.length === 0) {
+  if (items.length === 1) { // Only web link, no stations
     items.push({
       service: 'rtlsdr_radio',
       type: 'streaming-category',
@@ -4166,7 +4350,20 @@ ControllerRtlsdrRadio.prototype.showFmManagement = function() {
 ControllerRtlsdrRadio.prototype.showDabManagement = function() {
   var self = this;
   
+  var managementUrl = self.getManagementUrl();
   var items = [];
+  
+  // Add web management link at top
+  items.push({
+    service: 'rtlsdr_radio',
+    type: 'item-no-menu',
+    title: 'Open Web Management Interface',
+    artist: 'Full featured station editor',
+    album: managementUrl,
+    albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/radio.svg',
+    icon: 'fa fa-external-link',
+    uri: managementUrl
+  });
   
   if (self.stationsDb.dab) {
     self.stationsDb.dab.forEach(function(station) {
@@ -4190,7 +4387,7 @@ ControllerRtlsdrRadio.prototype.showDabManagement = function() {
     });
   }
   
-  if (items.length === 0) {
+  if (items.length === 1) { // Only web link, no stations
     items.push({
       service: 'rtlsdr_radio',
       type: 'streaming-category',
@@ -4274,10 +4471,40 @@ ControllerRtlsdrRadio.prototype.showStationManagementModal = function(stationUri
   var modalData = {
     title: 'Manage Station',
     message: displayName + (statusText.length > 0 ? '<br>Status: ' + statusText.join(', ') : '') +
-             '<br><br><small>Use Settings page to rename stations</small>',
+             '<br><br><small>To rename stations, use the Settings page</small>',
     size: 'md',
     buttons: buttons
   };
   
   self.commandRouter.broadcastMessage('openModal', modalData);
+};
+
+ControllerRtlsdrRadio.prototype.openRenameModalFromManagement = function(data) {
+  var self = this;
+  var defer = libQ.defer();
+  
+  // Close current modal first
+  self.commandRouter.broadcastMessage('closeAllModals', '');
+  
+  // Wait a moment for modal to close, then open rename modal
+  setTimeout(function() {
+    self.showRenameModal(data);
+    defer.resolve();
+  }, 300);
+  
+  return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.processRenameWithJs = function(data) {
+  var self = this;
+  var defer = libQ.defer();
+  
+  // Note: This is a placeholder. The actual value needs to be passed from frontend
+  // For now, just log and show message
+  self.logger.info('[RTL-SDR Radio] processRenameWithJs called for: ' + data.uri);
+  self.commandRouter.pushToastMessage('info', 'FM/DAB Radio', 
+    'Please use Settings page to rename stations (modal input not supported)');
+  
+  defer.resolve();
+  return defer.promise;
 };

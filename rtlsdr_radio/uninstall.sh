@@ -25,8 +25,20 @@ sed -i '/snd-aloop/d' /etc/modules
 # Unload ALSA loopback module
 rmmod snd-aloop 2>/dev/null
 
+echo ""
 echo "FM/DAB Radio plugin uninstalled"
-echo "Note: RTL-SDR libraries and dab-cmdline were NOT removed"
+echo ""
+echo "Removed components:"
+echo "- RTL-SDR and DAB decoder processes"
+echo "- Web management interface (port 3456)"
+echo "- Sudoers entry"
+echo "- Kernel module blacklist"
+echo "- ALSA loopback configuration"
+echo ""
+echo "Note: RTL-SDR libraries and DAB binaries were NOT removed"
 echo "To remove them manually, run:"
-echo "  apt-get remove rtl-sdr librtlsdr-dev"
+echo "  apt-get remove rtl-sdr librtlsdr0"
+echo "  rm -f /usr/local/bin/dab-rtlsdr-3"
+echo "  rm -f /usr/local/bin/dab-scanner-3"
+echo ""
 echo "pluginuninstallend"

@@ -41,6 +41,25 @@ esac
 echo "Using binaries from: $BIN_SOURCE"
 echo "Library directory: $LIB_DIR"
 
+# Check if web management port is available
+echo "Checking web management port availability..."
+WEB_PORT=3456
+if netstat -tuln 2>/dev/null | grep -q ":$WEB_PORT "; then
+  echo "WARNING: Port $WEB_PORT is already in use"
+  echo "Web management interface may not start"
+  echo "You may need to change managementPort in index.js"
+elif command -v ss >/dev/null 2>&1; then
+  if ss -tuln 2>/dev/null | grep -q ":$WEB_PORT "; then
+    echo "WARNING: Port $WEB_PORT is already in use"
+    echo "Web management interface may not start"
+    echo "You may need to change managementPort in index.js"
+  else
+    echo "Port $WEB_PORT is available for web management"
+  fi
+else
+  echo "Port $WEB_PORT will be used for web management"
+fi
+
 # Update package list
 apt-get update
 
@@ -140,11 +159,28 @@ fi
 # Create stations database directory
 mkdir -p /data/plugins/music_service/rtlsdr_radio
 
+# Get hostname for web interface URL
+HOSTNAME=$(hostname)
+if [ -z "$HOSTNAME" ]; then
+  HOSTNAME="volumio"
+fi
+
 echo ""
 echo "=========================================="
 echo "FM/DAB Radio plugin installation complete"
 echo "=========================================="
+echo "Version: 0.2.0"
 echo "Architecture: $ARCH"
 echo "Binaries: /usr/local/bin/dab-{rtlsdr,scanner}-3"
+echo ""
+echo "NEW in v0.2.0:"
+echo "Web Station Management Interface"
+echo "URL: http://$HOSTNAME.local:$WEB_PORT"
+echo ""
+echo "Access station management from:"
+echo "- Browse -> Manage FM/DAB Stations"
+echo "- Settings -> Web Station Management"
+echo "- Direct URL above"
+echo ""
 echo "Installation time: ~30 seconds"
 echo "plugininstallend"

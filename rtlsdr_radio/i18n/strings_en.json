@@ -35,7 +35,7 @@
   "MODAL_BTN_QUEUE": "Wait in Queue (60s timeout)",
   "MODAL_BTN_CANCEL_REQUEST": "Cancel Request",
   "TOAST_FM_SCANNING": "Scanning for stations (takes ~10 seconds)...",
-  "TOAST_DAB_SCANNING": "Scanning for DAB stations (takes 30-60 seconds)...",
+  "TOAST_DAB_SCANNING": "Scanning for DAB stations (takes 2-5 minutes)...",
   "TOAST_FM_SCAN_COMPLETE": "Found {0} stations",
   "TOAST_DAB_SCAN_COMPLETE": "Found {0} services",
   "TOAST_SCAN_FAILED": "Scan failed: {0}",
