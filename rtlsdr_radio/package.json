@@ -1,6 +1,6 @@
 {
   "name": "rtlsdr_radio",
-  "version": "0.5.3",
+  "version": "0.5.7",
   "description": "Receive FM and DAB/DAB+ radio using RTL-SDR USB tuners",
   "main": "index.js",
   "scripts": {

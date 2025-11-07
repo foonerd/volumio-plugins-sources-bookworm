@@ -103,8 +103,18 @@
       display: block;
     }
     
-    .search-bar {
+    .tab-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    
+    .search-bar {
+      flex: 1;
+      min-width: 250px;
       position: relative;
     }
     
@@ -189,6 +199,9 @@
     .station-details {
       font-size: 12px;
       color: #999;
+      display: flex;
+      gap: 10px;
+      align-items: center;
     }
     
     .station-type-badge {
@@ -218,6 +231,32 @@
       border-color: #54b948;
     }
     
+    .frequency-input {
+      width: 80px;
+      padding: 4px 8px;
+      background: #1c1c1c;
+      border: 1px solid #404040;
+      border-radius: 3px;
+      color: #e0e0e0;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+      text-align: center;
+    }
+    
+    .frequency-input:focus {
+      outline: none;
+      border-color: #54b948;
+    }
+    
+    .frequency-input.error {
+      border-color: #e74c3c;
+    }
+    
+    .frequency-display {
+      font-family: 'Courier New', monospace;
+      color: #999;
+    }
+    
     .station-actions {
       display: flex;
       gap: 8px;
@@ -236,6 +275,7 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      font-family: inherit;
     }
     
     .btn .fa {
@@ -310,6 +350,17 @@
       border-color: #404040;
       color: #666;
       cursor: not-allowed;
+    }
+    
+    .btn-secondary {
+      background: #666;
+      color: #fff;
+      border: 1px solid #666;
+    }
+    
+    .btn-secondary:hover {
+      background: #555;
+      border-color: #555;
     }
     
     .save-bar {
@@ -456,7 +507,126 @@
       margin-top: 2px;
     }
     
-    /* Mobile responsive */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 300;
+    }
+    
+    .modal-overlay.show {
+      display: flex;
+    }
+    
+    .modal {
+      background: #282828;
+      border-radius: 4px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 90vh;
+      overflow: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid #404040;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .modal-header.warning {
+      background: #f39c12;
+      color: #fff;
+      border-bottom-color: #e08e0b;
+    }
+    
+    .modal-header .fa {
+      font-size: 24px;
+    }
+    
+    .modal-header h2 {
+      font-size: 18px;
+      font-weight: 500;
+      margin: 0;
+    }
+    
+    .modal-body {
+      padding: 20px;
+    }
+    
+    .modal-body p {
+      margin-bottom: 15px;
+      line-height: 1.5;
+    }
+    
+    .freq-comparison {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      margin: 20px 0;
+      padding: 15px;
+      background: #1c1c1c;
+      border-radius: 4px;
+    }
+    
+    .freq-old, .freq-new {
+      text-align: center;
+    }
+    
+    .freq-old label, .freq-new label {
+      display: block;
+      font-size: 11px;
+      color: #999;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+    
+    .freq-old span, .freq-new span {
+      display: block;
+      font-size: 20px;
+      font-weight: 500;
+      font-family: 'Courier New', monospace;
+    }
+    
+    .freq-old span {
+      color: #e74c3c;
+    }
+    
+    .freq-new span {
+      color: #54b948;
+    }
+    
+    .freq-arrow {
+      color: #666;
+      font-size: 20px;
+    }
+    
+    .warning-text {
+      background: #404040;
+      padding: 12px;
+      border-radius: 4px;
+      border-left: 3px solid #f39c12;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    
+    .modal-footer {
+      padding: 15px 20px;
+      border-top: 1px solid #404040;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    
     @media (max-width: 768px) {
       .container {
         padding: 15px;
@@ -520,28 +690,41 @@
       .tab {
         flex-shrink: 0;
       }
+      
+      .modal {
+        width: 95%;
+      }
+      
+      .freq-comparison {
+        flex-direction: column;
+        gap: 10px;
+      }
+      
+      .freq-arrow {
+        transform: rotate(90deg);
+      }
     }
   </style>
 </head>
 <body>
   <div class="header">
-    <h1>Station Management</h1>
-    <div class="subtitle">RTL-SDR Radio Plugin</div>
+    <h1 id="page-title">Station Management</h1>
+    <div class="subtitle" id="page-subtitle">RTL-SDR Radio Plugin</div>
   </div>
   
   <div class="container">
     <div class="tabs">
       <button class="tab active" data-tab="fm">
         <i class="fa fa-signal"></i>
-        <span>FM Radio</span>
+        <span id="tab-fm">FM Radio</span>
       </button>
       <button class="tab" data-tab="dab">
         <i class="fa fa-wifi"></i>
-        <span>DAB Radio</span>
+        <span id="tab-dab">DAB Radio</span>
       </button>
       <button class="tab" data-tab="recycle">
         <i class="fa fa-trash"></i>
-        <span>Recycle Bin</span>
+        <span id="tab-recycle">Recycle Bin</span>
         <span class="tab-badge" id="recycle-count">0</span>
       </button>
     </div>
@@ -549,22 +732,28 @@
     <div id="fm-tab" class="tab-content active">
       <div class="stats">
         <div class="stat-card">
-          <div class="stat-label"><i class="fa fa-list"></i> Total Stations</div>
+          <div class="stat-label"><i class="fa fa-list"></i> <span id="stat-total-label-fm">Total Stations</span></div>
           <div class="stat-value" id="fm-total">0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label"><i class="fa fa-star"></i> Favorites</div>
+          <div class="stat-label"><i class="fa fa-star"></i> <span id="stat-favorites-label-fm">Favorites</span></div>
           <div class="stat-value" id="fm-favorites">0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label"><i class="fa fa-eye-slash"></i> Hidden</div>
+          <div class="stat-label"><i class="fa fa-eye-slash"></i> <span id="stat-hidden-label-fm">Hidden</span></div>
           <div class="stat-value" id="fm-hidden">0</div>
         </div>
       </div>
       
-      <div class="search-bar">
-        <input type="text" id="fm-search" placeholder="Search FM stations...">
-        <i class="fa fa-search search-icon"></i>
+      <div class="tab-header">
+        <div class="search-bar">
+          <input type="text" id="fm-search" placeholder="Search FM stations...">
+          <i class="fa fa-search search-icon"></i>
+        </div>
+        <button class="btn btn-danger" id="clear-fm-btn">
+          <i class="fa fa-trash"></i>
+          <span id="btn-clear-fm">Clear All FM</span>
+        </button>
       </div>
       
       <div id="fm-list" class="station-list"></div>
@@ -573,22 +762,28 @@
     <div id="dab-tab" class="tab-content">
       <div class="stats">
         <div class="stat-card">
-          <div class="stat-label"><i class="fa fa-list"></i> Total Stations</div>
+          <div class="stat-label"><i class="fa fa-list"></i> <span id="stat-total-label-dab">Total Stations</span></div>
           <div class="stat-value" id="dab-total">0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label"><i class="fa fa-star"></i> Favorites</div>
+          <div class="stat-label"><i class="fa fa-star"></i> <span id="stat-favorites-label-dab">Favorites</span></div>
           <div class="stat-value" id="dab-favorites">0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label"><i class="fa fa-eye-slash"></i> Hidden</div>
+          <div class="stat-label"><i class="fa fa-eye-slash"></i> <span id="stat-hidden-label-dab">Hidden</span></div>
           <div class="stat-value" id="dab-hidden">0</div>
         </div>
       </div>
       
-      <div class="search-bar">
-        <input type="text" id="dab-search" placeholder="Search DAB stations...">
-        <i class="fa fa-search search-icon"></i>
+      <div class="tab-header">
+        <div class="search-bar">
+          <input type="text" id="dab-search" placeholder="Search DAB stations...">
+          <i class="fa fa-search search-icon"></i>
+        </div>
+        <button class="btn btn-danger" id="clear-dab-btn">
+          <i class="fa fa-trash"></i>
+          <span id="btn-clear-dab">Clear All DAB</span>
+        </button>
       </div>
       
       <div id="dab-list" class="station-list"></div>
@@ -597,14 +792,18 @@
     <div id="recycle-tab" class="tab-content">
       <div class="recycle-notice">
         <i class="fa fa-info-circle"></i>
-        <div>
-          Deleted stations are kept here until purged. You can restore them or permanently delete them.
-        </div>
+        <div id="recycle-notice-text">Deleted stations are kept here until purged. You can restore them or permanently delete them.</div>
       </div>
       
-      <div class="search-bar">
-        <input type="text" id="recycle-search" placeholder="Search deleted stations...">
-        <i class="fa fa-search search-icon"></i>
+      <div class="tab-header">
+        <div class="search-bar">
+          <input type="text" id="recycle-search" placeholder="Search deleted stations...">
+          <i class="fa fa-search search-icon"></i>
+        </div>
+        <button class="btn btn-danger" id="empty-recycle-btn">
+          <i class="fa fa-times-circle"></i>
+          <span id="btn-empty-recycle">Empty Recycle Bin</span>
+        </button>
       </div>
       
       <div id="recycle-list" class="station-list"></div>
@@ -614,12 +813,12 @@
   <div class="save-bar">
     <div class="info" id="save-status">
       <i class="fa fa-check-circle"></i>
-      <span>No changes</span>
+      <span id="status-text">No changes</span>
     </div>
     <div class="actions">
       <button class="btn btn-primary" id="save-btn" disabled>
         <i class="fa fa-floppy-o"></i>
-        <span>Save Changes</span>
+        <span id="btn-save-text">Save Changes</span>
       </button>
     </div>
   </div>
@@ -629,11 +828,89 @@
     <span id="toast-message"></span>
   </div>
   
+  <div class="modal-overlay" id="freq-modal">
+    <div class="modal">
+      <div class="modal-header warning">
+        <i class="fa fa-exclamation-triangle"></i>
+        <h2 id="freq-modal-title">Warning: Change Frequency?</h2>
+      </div>
+      <div class="modal-body">
+        <p id="freq-modal-msg">You are about to change the frequency for "Station Name"</p>
+        <div class="freq-comparison">
+          <div class="freq-old">
+            <label id="freq-old-label">From:</label>
+            <span id="freq-old-value">98.7 MHz</span>
+          </div>
+          <div class="freq-arrow">
+            <i class="fa fa-arrow-right"></i>
+          </div>
+          <div class="freq-new">
+            <label id="freq-new-label">To:</label>
+            <span id="freq-new-value">98.8 MHz</span>
+          </div>
+        </div>
+        <p class="warning-text" id="freq-modal-details">This will affect playback. Make sure the new frequency is correct.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="freq-cancel">
+          <span id="btn-cancel-text">Cancel</span>
+        </button>
+        <button class="btn btn-danger" id="freq-confirm">
+          <i class="fa fa-check"></i>
+          <span id="freq-confirm-text">Change Frequency</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  
   <script>
     let fmStations = [];
     let dabStations = [];
     let hasChanges = false;
-    let originalData = {};
+    let i18n = {};
+    let pendingFreqChange = null;
+    
+    // i18n functions
+    function t(key, ...args) {
+      let str = i18n[key] || key;
+      args.forEach((arg, index) => {
+        str = str.replace('{' + index + '}', arg);
+      });
+      return str;
+    }
+    
+    async function loadTranslations() {
+      try {
+        const response = await fetch('/api/i18n/en');
+        i18n = await response.json();
+        updateUIText();
+      } catch (error) {
+        console.error('Failed to load translations:', error);
+      }
+    }
+    
+    function updateUIText() {
+      document.getElementById('page-title').textContent = t('WEB_MANAGER_TITLE');
+      document.getElementById('page-subtitle').textContent = t('WEB_MANAGER_SUBTITLE');
+      document.getElementById('tab-fm').textContent = t('TAB_FM_RADIO');
+      document.getElementById('tab-dab').textContent = t('TAB_DAB_RADIO');
+      document.getElementById('tab-recycle').textContent = t('TAB_RECYCLE_BIN');
+      document.getElementById('stat-total-label-fm').textContent = t('STAT_TOTAL');
+      document.getElementById('stat-favorites-label-fm').textContent = t('STAT_FAVORITES');
+      document.getElementById('stat-hidden-label-fm').textContent = t('STAT_HIDDEN');
+      document.getElementById('stat-total-label-dab').textContent = t('STAT_TOTAL');
+      document.getElementById('stat-favorites-label-dab').textContent = t('STAT_FAVORITES');
+      document.getElementById('stat-hidden-label-dab').textContent = t('STAT_HIDDEN');
+      document.getElementById('btn-clear-fm').textContent = t('BTN_CLEAR_ALL_FM');
+      document.getElementById('btn-clear-dab').textContent = t('BTN_CLEAR_ALL_DAB');
+      document.getElementById('btn-empty-recycle').textContent = t('BTN_EMPTY_RECYCLE');
+      document.getElementById('btn-save-text').textContent = t('BTN_SAVE');
+      document.getElementById('btn-cancel-text').textContent = t('BTN_CANCEL');
+      document.getElementById('recycle-notice-text').textContent = t('RECYCLE_NOTICE');
+      document.getElementById('fm-search').placeholder = t('SEARCH_FM');
+      document.getElementById('dab-search').placeholder = t('SEARCH_DAB');
+      document.getElementById('recycle-search').placeholder = t('SEARCH_RECYCLE');
+    }
     
     // Tab switching
     document.querySelectorAll('.tab').forEach(tab => {
@@ -656,22 +933,18 @@
         fmStations = data.fm || [];
         dabStations = data.dab || [];
         
-        // Store original data for change detection
-        originalData = JSON.parse(JSON.stringify(data));
-        
         renderStations('fm', fmStations);
         renderStations('dab', dabStations);
         renderRecycleBin();
         updateStats();
         updateRecycleCount();
         
-        // Reset change tracking
         hasChanges = false;
-        updateSaveStatus('No changes', false);
+        updateSaveStatus(t('STATUS_NO_CHANGES'), false);
         document.getElementById('save-btn').disabled = true;
         
       } catch (error) {
-        showToast('Failed to load stations: ' + error.message, 'error');
+        showToast(t('TOAST_LOAD_FAILED', error.message), 'error');
       }
     }
     
@@ -681,7 +954,6 @@
       const searchEl = document.getElementById(type + '-search');
       const searchTerm = searchEl.value.toLowerCase();
       
-      // Filter out deleted and search
       let filtered = stations.filter(s => !s.deleted);
       if (searchTerm) {
         filtered = filtered.filter(s => {
@@ -693,14 +965,14 @@
       }
       
       if (filtered.length === 0) {
-        listEl.innerHTML = '<div class="empty-state"><i class="fa fa-radio"></i><div class="empty-state-text">No stations found</div></div>';
+        const emptyKey = type === 'fm' ? 'EMPTY_FM' : 'EMPTY_DAB';
+        listEl.innerHTML = '<div class="empty-state"><i class="fa fa-radio"></i><div class="empty-state-text">' + t(emptyKey) + '</div></div>';
         return;
       }
       
-      listEl.innerHTML = filtered.map((station, idx) => {
+      listEl.innerHTML = filtered.map((station) => {
         const realIdx = stations.indexOf(station);
         const displayName = station.customName || station.name || 'Unknown';
-        const frequency = type === 'fm' ? station.frequency + ' MHz' : (station.channelName || '');
         
         let icon = '';
         if (station.favorite) {
@@ -714,23 +986,32 @@
         const favoriteClass = station.favorite ? 'active favorite' : '';
         const hiddenClass = station.hidden ? 'active hidden' : '';
         
+        let frequencyHtml = '';
+        if (type === 'fm') {
+          frequencyHtml = '<input type="number" class="frequency-input" value="' + station.frequency + '" min="87.5" max="108.0" step="0.1" data-type="fm" data-index="' + realIdx + '" data-original="' + station.frequency + '" title="' + t('LABEL_FREQUENCY') + '">';
+        } else {
+          frequencyHtml = '<span class="frequency-display">' + (station.channelName || '') + '</span>';
+        }
+        
         return `
           <div class="station-item" data-type="${type}" data-index="${realIdx}">
             ${icon}
             <div class="station-info">
               <div class="station-name">
-                <input type="text" class="station-name-input" value="${escapeHtml(displayName)}" data-type="${type}" data-index="${realIdx}" data-field="customName" placeholder="Station name">
+                <input type="text" class="station-name-input" value="${escapeHtml(displayName)}" data-type="${type}" data-index="${realIdx}" placeholder="${t('PLACEHOLDER_STATION_NAME')}">
               </div>
-              <div class="station-details">${frequency}</div>
+              <div class="station-details">
+                ${frequencyHtml}
+              </div>
             </div>
             <div class="station-actions">
-              <button class="btn btn-icon ${favoriteClass}" title="Toggle Favorite" data-type="${type}" data-index="${realIdx}" data-action="favorite">
+              <button class="btn btn-icon ${favoriteClass}" title="${t('BTN_FAVORITE')}" data-type="${type}" data-index="${realIdx}" data-action="favorite">
                 <i class="fa ${station.favorite ? 'fa-star' : 'fa-star-o'}"></i>
               </button>
-              <button class="btn btn-icon ${hiddenClass}" title="Toggle Hidden" data-type="${type}" data-index="${realIdx}" data-action="hidden">
+              <button class="btn btn-icon ${hiddenClass}" title="${t('BTN_HIDDEN')}" data-type="${type}" data-index="${realIdx}" data-action="hidden">
                 <i class="fa ${station.hidden ? 'fa-eye-slash' : 'fa-eye'}"></i>
               </button>
-              <button class="btn btn-danger" title="Delete Station" data-type="${type}" data-index="${realIdx}" data-action="delete">
+              <button class="btn btn-danger" title="${t('BTN_DELETE')}" data-type="${type}" data-index="${realIdx}" data-action="delete">
                 <i class="fa fa-trash"></i>
               </button>
             </div>
@@ -759,7 +1040,7 @@
       }
       
       if (allDeleted.length === 0) {
-        listEl.innerHTML = '<div class="empty-state"><i class="fa fa-check-circle"></i><div class="empty-state-text">Recycle bin is empty</div></div>';
+        listEl.innerHTML = '<div class="empty-state"><i class="fa fa-check-circle"></i><div class="empty-state-text">' + t('EMPTY_RECYCLE') + '</div></div>';
         return;
       }
       
@@ -784,13 +1065,13 @@
               <div class="station-details">${frequency}</div>
             </div>
             <div class="station-actions">
-              <button class="btn btn-warning" title="Restore Station" data-type="${station.type}" data-index="${realIdx}" data-action="restore">
+              <button class="btn btn-warning" title="${t('BTN_RESTORE')}" data-type="${station.type}" data-index="${realIdx}" data-action="restore">
                 <i class="fa fa-undo"></i>
-                <span>Restore</span>
+                <span>${t('BTN_RESTORE')}</span>
               </button>
-              <button class="btn btn-danger" title="Permanently Delete" data-type="${station.type}" data-index="${realIdx}" data-action="purge-one">
+              <button class="btn btn-danger" title="${t('BTN_PURGE')}" data-type="${station.type}" data-index="${realIdx}" data-action="purge-one">
                 <i class="fa fa-times-circle"></i>
-                <span>Purge</span>
+                <span>${t('BTN_PURGE')}</span>
               </button>
             </div>
           </div>
@@ -802,12 +1083,44 @@
     
     // Attach event listeners
     function attachEventListeners(type) {
-      document.querySelectorAll(`input[data-type="${type}"]`).forEach(input => {
+      document.querySelectorAll(`input.station-name-input[data-type="${type}"]`).forEach(input => {
         input.addEventListener('input', (e) => {
           const idx = parseInt(e.target.dataset.index);
           const stations = type === 'fm' ? fmStations : dabStations;
           stations[idx].customName = e.target.value;
           markChanged();
+        });
+      });
+      
+      document.querySelectorAll(`input.frequency-input[data-type="${type}"]`).forEach(input => {
+        input.addEventListener('blur', (e) => {
+          const idx = parseInt(e.target.dataset.index);
+          const newFreq = parseFloat(e.target.value);
+          const oldFreq = parseFloat(e.target.dataset.original);
+          
+          if (newFreq === oldFreq) return;
+          
+          if (newFreq < 87.5 || newFreq > 108.0 || isNaN(newFreq)) {
+            showToast(t('WARN_FREQ_INVALID'), 'error');
+            e.target.value = oldFreq;
+            e.target.classList.add('error');
+            setTimeout(() => e.target.classList.remove('error'), 2000);
+            return;
+          }
+          
+          const stations = fmStations;
+          const station = stations[idx];
+          
+          pendingFreqChange = {
+            type: type,
+            index: idx,
+            oldFreq: oldFreq,
+            newFreq: newFreq,
+            stationName: station.customName || station.name,
+            inputEl: e.target
+          };
+          
+          showFrequencyWarning();
         });
       });
       
@@ -822,7 +1135,7 @@
           } else if (action === 'hidden') {
             stations[idx].hidden = !stations[idx].hidden;
           } else if (action === 'delete') {
-            if (confirm('Move this station to recycle bin?')) {
+            if (confirm(t('CONFIRM_DELETE_ONE'))) {
               stations[idx].deleted = true;
             } else {
               return;
@@ -854,9 +1167,9 @@
             renderRecycleBin();
             updateStats();
             updateRecycleCount();
-            showToast('Station restored');
+            showToast(t('TOAST_RESTORED'));
           } else if (action === 'purge-one') {
-            if (confirm('Permanently delete this station? This cannot be undone.')) {
+            if (confirm(t('CONFIRM_PURGE_ONE'))) {
               if (type === 'fm') {
                 fmStations.splice(idx, 1);
               } else {
@@ -865,12 +1178,57 @@
               markChanged();
               renderRecycleBin();
               updateRecycleCount();
-              showToast('Station permanently deleted', 'warning');
+              showToast(t('TOAST_PURGED'), 'warning');
             }
           }
         });
       });
     }
+    
+    // Frequency change warning modal
+    function showFrequencyWarning() {
+      if (!pendingFreqChange) return;
+      
+      const modal = document.getElementById('freq-modal');
+      document.getElementById('freq-modal-title').textContent = t('WARN_FREQ_CHANGE_TITLE');
+      document.getElementById('freq-modal-msg').textContent = t('WARN_FREQ_CHANGE_MSG', pendingFreqChange.stationName);
+      document.getElementById('freq-old-label').textContent = t('WARN_FREQ_CHANGE_FROM');
+      document.getElementById('freq-new-label').textContent = t('WARN_FREQ_CHANGE_TO');
+      document.getElementById('freq-old-value').textContent = pendingFreqChange.oldFreq + ' MHz';
+      document.getElementById('freq-new-value').textContent = pendingFreqChange.newFreq + ' MHz';
+      document.getElementById('freq-modal-details').textContent = t('WARN_FREQ_CHANGE_DETAILS', pendingFreqChange.newFreq);
+      document.getElementById('freq-confirm-text').textContent = t('WARN_FREQ_CHANGE_BTN');
+      
+      modal.classList.add('show');
+    }
+    
+    document.getElementById('freq-cancel').addEventListener('click', () => {
+      if (pendingFreqChange) {
+        pendingFreqChange.inputEl.value = pendingFreqChange.oldFreq;
+        pendingFreqChange = null;
+      }
+      document.getElementById('freq-modal').classList.remove('show');
+    });
+    
+    document.getElementById('freq-confirm').addEventListener('click', () => {
+      if (pendingFreqChange) {
+        const stations = pendingFreqChange.type === 'fm' ? fmStations : dabStations;
+        stations[pendingFreqChange.index].frequency = pendingFreqChange.newFreq;
+        pendingFreqChange.inputEl.dataset.original = pendingFreqChange.newFreq;
+        
+        const duplicate = stations.find((s, i) => 
+          i !== pendingFreqChange.index && s.frequency === pendingFreqChange.newFreq && !s.deleted
+        );
+        if (duplicate) {
+          showToast(t('WARN_FREQ_DUPLICATE', pendingFreqChange.newFreq), 'warning');
+        }
+        
+        markChanged();
+        showToast(t('TOAST_FREQUENCY_CHANGED', pendingFreqChange.newFreq));
+        pendingFreqChange = null;
+      }
+      document.getElementById('freq-modal').classList.remove('show');
+    });
     
     // Update statistics
     function updateStats() {
@@ -896,7 +1254,7 @@
     // Mark as changed
     function markChanged() {
       hasChanges = true;
-      updateSaveStatus('Unsaved changes', true);
+      updateSaveStatus(t('STATUS_UNSAVED'), true);
       document.getElementById('save-btn').disabled = false;
     }
     
@@ -904,7 +1262,7 @@
     function updateSaveStatus(message, changed) {
       const statusEl = document.getElementById('save-status');
       const iconEl = statusEl.querySelector('.fa');
-      const textEl = statusEl.querySelector('span');
+      const textEl = document.getElementById('status-text');
       
       textEl.textContent = message;
       
@@ -921,7 +1279,7 @@
     async function saveChanges() {
       try {
         document.getElementById('save-btn').disabled = true;
-        updateSaveStatus('Saving...', false);
+        updateSaveStatus(t('STATUS_SAVING'), false);
         
         const response = await fetch('/api/stations', {
           method: 'POST',
@@ -932,16 +1290,97 @@
         if (!response.ok) throw new Error('Save failed');
         
         hasChanges = false;
-        updateSaveStatus('All changes saved', false);
-        showToast('Changes saved successfully');
+        updateSaveStatus(t('STATUS_SAVED'), false);
+        showToast(t('TOAST_SAVED'));
         setTimeout(() => loadStations(), 1000);
         
       } catch (error) {
-        showToast('Failed to save: ' + error.message, 'error');
+        showToast(t('TOAST_SAVE_FAILED', error.message), 'error');
         document.getElementById('save-btn').disabled = false;
-        updateSaveStatus('Save failed', true);
+        updateSaveStatus(t('STATUS_UNSAVED'), true);
       }
     }
+    
+    // Clear all FM stations
+    document.getElementById('clear-fm-btn').addEventListener('click', async () => {
+      const count = fmStations.filter(s => !s.deleted).length;
+      if (count === 0) {
+        showToast(t('EMPTY_FM'), 'warning');
+        return;
+      }
+      
+      if (!confirm(t('CONFIRM_CLEAR_FM_MSG', count))) return;
+      
+      try {
+        const response = await fetch('/api/stations/clear-fm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) throw new Error('Clear failed');
+        
+        const data = await response.json();
+        showToast(t('TOAST_CLEARED_FM', data.count));
+        setTimeout(() => loadStations(), 1000);
+        
+      } catch (error) {
+        showToast('Failed to clear: ' + error.message, 'error');
+      }
+    });
+    
+    // Clear all DAB stations
+    document.getElementById('clear-dab-btn').addEventListener('click', async () => {
+      const count = dabStations.filter(s => !s.deleted).length;
+      if (count === 0) {
+        showToast(t('EMPTY_DAB'), 'warning');
+        return;
+      }
+      
+      if (!confirm(t('CONFIRM_CLEAR_DAB_MSG', count))) return;
+      
+      try {
+        const response = await fetch('/api/stations/clear-dab', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) throw new Error('Clear failed');
+        
+        const data = await response.json();
+        showToast(t('TOAST_CLEARED_DAB', data.count));
+        setTimeout(() => loadStations(), 1000);
+        
+      } catch (error) {
+        showToast('Failed to clear: ' + error.message, 'error');
+      }
+    });
+    
+    // Empty recycle bin
+    document.getElementById('empty-recycle-btn').addEventListener('click', async () => {
+      const deletedCount = fmStations.filter(s => s.deleted).length + dabStations.filter(s => s.deleted).length;
+      
+      if (deletedCount === 0) {
+        showToast(t('EMPTY_RECYCLE'), 'warning');
+        return;
+      }
+      
+      if (!confirm(t('CONFIRM_EMPTY_RECYCLE_MSG', deletedCount))) return;
+      
+      try {
+        const response = await fetch('/api/stations/purge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) throw new Error('Purge failed');
+        
+        showToast(t('TOAST_RECYCLE_EMPTIED', deletedCount), 'warning');
+        setTimeout(() => loadStations(), 1000);
+        
+      } catch (error) {
+        showToast('Failed to purge: ' + error.message, 'error');
+      }
+    });
     
     // Show toast
     function showToast(message, type = 'success') {
@@ -988,8 +1427,8 @@
       }
     });
     
-    // Load on page ready
-    loadStations();
+    // Initialize
+    loadTranslations().then(() => loadStations());
   </script>
 </body>
 </html>

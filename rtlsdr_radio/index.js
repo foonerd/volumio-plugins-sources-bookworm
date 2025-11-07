@@ -233,6 +233,88 @@ ControllerRtlsdrRadio.prototype.startManagementServer = function() {
       }
     });
     
+    // API: Clear all FM stations (move to recycle bin)
+    self.expressApp.post('/api/stations/clear-fm', function(req, res) {
+      try {
+        var clearedCount = 0;
+        
+        // Mark all FM stations as deleted
+        self.stationsDb.fm.forEach(function(station) {
+          if (!station.deleted) {
+            station.deleted = true;
+            clearedCount++;
+          }
+        });
+        
+        // Save to disk
+        self.saveStations();
+        self.logger.info('[RTL-SDR Radio] Cleared ' + clearedCount + ' FM stations via web interface');
+        res.json({ success: true, count: clearedCount });
+        
+      } catch (e) {
+        self.logger.error('[RTL-SDR Radio] Error clearing FM stations: ' + e);
+        res.status(500).json({ error: 'Failed to clear FM stations' });
+      }
+    });
+    
+    // API: Clear all DAB stations (move to recycle bin)
+    self.expressApp.post('/api/stations/clear-dab', function(req, res) {
+      try {
+        var clearedCount = 0;
+        
+        // Mark all DAB stations as deleted
+        self.stationsDb.dab.forEach(function(station) {
+          if (!station.deleted) {
+            station.deleted = true;
+            clearedCount++;
+          }
+        });
+        
+        // Save to disk
+        self.saveStations();
+        self.logger.info('[RTL-SDR Radio] Cleared ' + clearedCount + ' DAB stations via web interface');
+        res.json({ success: true, count: clearedCount });
+        
+      } catch (e) {
+        self.logger.error('[RTL-SDR Radio] Error clearing DAB stations: ' + e);
+        res.status(500).json({ error: 'Failed to clear DAB stations' });
+      }
+    });
+    
+    // API: Get i18n translations
+    self.expressApp.get('/api/i18n/:lang', function(req, res) {
+      var lang = req.params.lang || 'en';
+      var stringsFile = __dirname + '/i18n/strings_' + lang + '.json';
+      
+      fs.readFile(stringsFile, 'utf8', function(err, data) {
+        if (err) {
+          // Fallback to English
+          self.logger.info('[RTL-SDR Radio] Translation file not found for ' + lang + ', using English');
+          stringsFile = __dirname + '/i18n/strings_en.json';
+          fs.readFile(stringsFile, 'utf8', function(err2, data2) {
+            if (err2) {
+              self.logger.error('[RTL-SDR Radio] Failed to load English translations: ' + err2);
+              res.status(500).json({ error: 'Failed to load translations' });
+            } else {
+              try {
+                res.json(JSON.parse(data2));
+              } catch (e) {
+                self.logger.error('[RTL-SDR Radio] Failed to parse English translations: ' + e);
+                res.status(500).json({ error: 'Failed to parse translations' });
+              }
+            }
+          });
+        } else {
+          try {
+            res.json(JSON.parse(data));
+          } catch (e) {
+            self.logger.error('[RTL-SDR Radio] Failed to parse translations for ' + lang + ': ' + e);
+            res.status(500).json({ error: 'Failed to parse translations' });
+          }
+        }
+      });
+    });
+    
     // Start server
     self.expressServer = self.expressApp.listen(self.managementPort, function() {
       self.logger.info('[RTL-SDR Radio] Management server started on port ' + self.managementPort);

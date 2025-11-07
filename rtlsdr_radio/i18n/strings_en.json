@@ -46,5 +46,80 @@
   "TOAST_DEVICE_AVAILABLE": "RTL-SDR device is now available",
   "TOAST_STOPPING_OPERATION": "Stopping current operation, please wait...",
   "FM_RADIO": "FM Radio",
-  "DAB_RADIO": "DAB Radio"
+  "DAB_RADIO": "DAB Radio",
+  
+  "WEB_MANAGER_TITLE": "Station Management",
+  "WEB_MANAGER_SUBTITLE": "RTL-SDR Radio Plugin",
+  
+  "TAB_FM_RADIO": "FM Radio",
+  "TAB_DAB_RADIO": "DAB Radio",
+  "TAB_RECYCLE_BIN": "Recycle Bin",
+  
+  "STAT_TOTAL": "Total Stations",
+  "STAT_FAVORITES": "Favorites",
+  "STAT_HIDDEN": "Hidden",
+  
+  "SEARCH_FM": "Search FM stations...",
+  "SEARCH_DAB": "Search DAB stations...",
+  "SEARCH_RECYCLE": "Search deleted stations...",
+  
+  "BTN_CLEAR_ALL_FM": "Clear All FM",
+  "BTN_CLEAR_ALL_DAB": "Clear All DAB",
+  "BTN_EMPTY_RECYCLE": "Empty Recycle Bin",
+  "BTN_FAVORITE": "Toggle Favorite",
+  "BTN_HIDDEN": "Toggle Hidden",
+  "BTN_DELETE": "Delete Station",
+  "BTN_RESTORE": "Restore",
+  "BTN_PURGE": "Purge",
+  "BTN_SAVE": "Save Changes",
+  "BTN_CANCEL": "Cancel",
+  "BTN_CONFIRM": "Confirm",
+  
+  "PLACEHOLDER_STATION_NAME": "Station name",
+  "PLACEHOLDER_FREQUENCY": "MHz",
+  
+  "STATUS_NO_CHANGES": "No changes",
+  "STATUS_UNSAVED": "Unsaved changes",
+  "STATUS_SAVING": "Saving...",
+  "STATUS_SAVED": "All changes saved",
+  
+  "TOAST_SAVED": "Changes saved successfully",
+  "TOAST_SAVE_FAILED": "Failed to save: {0}",
+  "TOAST_LOAD_FAILED": "Failed to load stations: {0}",
+  "TOAST_RESTORED": "Station restored",
+  "TOAST_PURGED": "Station permanently deleted",
+  "TOAST_CLEARED_FM": "Moved {0} FM stations to recycle bin",
+  "TOAST_CLEARED_DAB": "Moved {0} DAB stations to recycle bin",
+  "TOAST_RECYCLE_EMPTIED": "Permanently deleted {0} stations",
+  "TOAST_FREQUENCY_CHANGED": "Frequency changed to {0} MHz",
+  
+  "CONFIRM_CLEAR_FM_TITLE": "Clear All FM Stations?",
+  "CONFIRM_CLEAR_FM_MSG": "Move all {0} FM stations to recycle bin? You can restore them later or permanently delete them.",
+  "CONFIRM_CLEAR_DAB_TITLE": "Clear All DAB Stations?",
+  "CONFIRM_CLEAR_DAB_MSG": "Move all {0} DAB stations to recycle bin? You can restore them later or permanently delete them.",
+  "CONFIRM_EMPTY_RECYCLE_TITLE": "Empty Recycle Bin?",
+  "CONFIRM_EMPTY_RECYCLE_MSG": "Permanently delete {0} station(s)? This cannot be undone.",
+  "CONFIRM_DELETE_ONE": "Move this station to recycle bin?",
+  "CONFIRM_PURGE_ONE": "Permanently delete this station? This cannot be undone.",
+  
+  "WARN_FREQ_CHANGE_TITLE": "Warning: Change Frequency?",
+  "WARN_FREQ_CHANGE_MSG": "You are about to change the frequency for \"{0}\"",
+  "WARN_FREQ_CHANGE_FROM": "From:",
+  "WARN_FREQ_CHANGE_TO": "To:",
+  "WARN_FREQ_CHANGE_DETAILS": "This will affect playback. Make sure the new frequency is correct. Only proceed if you know this station broadcasts on {0} MHz.",
+  "WARN_FREQ_DUPLICATE": "Warning: {0} MHz already exists in your station list",
+  "WARN_FREQ_INVALID": "Invalid frequency. Must be between 87.5 and 108.0 MHz",
+  "WARN_FREQ_CHANGE_BTN": "Change Frequency",
+  
+  "RECYCLE_NOTICE": "Deleted stations are kept here until purged. You can restore them or permanently delete them.",
+  
+  "EMPTY_FM": "No FM stations found",
+  "EMPTY_DAB": "No DAB stations found",
+  "EMPTY_RECYCLE": "Recycle bin is empty",
+  "EMPTY_SEARCH": "No stations found",
+  
+  "LABEL_FREQUENCY": "Frequency",
+  "LABEL_CHANNEL": "Channel",
+  "LABEL_TYPE": "Type",
+  "LABEL_STATION_NAME": "Station Name"
 }
