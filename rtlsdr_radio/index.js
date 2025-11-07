@@ -2423,6 +2423,198 @@ ControllerRtlsdrRadio.prototype.purgeDeletedStations = function() {
   return defer.promise;
 };
 
+// ========== RESCAN MERGE LOGIC - Phase 5.5 ==========
+
+ControllerRtlsdrRadio.prototype.mergeFmScanResults = function(newStations) {
+  var self = this;
+  
+  self.logger.info('[RTL-SDR Radio] Merging FM scan results with existing database');
+  
+  var mergedStations = [];
+  var existingMap = {};
+  var reappearedCount = 0;
+  
+  // Create map of existing stations by frequency
+  if (self.stationsDb.fm && self.stationsDb.fm.length > 0) {
+    self.stationsDb.fm.forEach(function(station) {
+      existingMap[station.frequency] = station;
+    });
+  }
+  
+  // Process each scanned station
+  newStations.forEach(function(newStation) {
+    var frequency = newStation.frequency;
+    var existingStation = existingMap[frequency];
+    
+    if (existingStation) {
+      // Station exists - merge data
+      var mergedStation = self.mergeStationData(existingStation, newStation, 'fm');
+      
+      // Check if deleted station reappeared
+      if (existingStation.deleted && !existingStation.availableAgain) {
+        mergedStation.availableAgain = true;
+        reappearedCount++;
+        self.logger.info('[RTL-SDR Radio] Deleted FM station reappeared: ' + frequency + ' MHz');
+      }
+      
+      mergedStations.push(mergedStation);
+      
+      // Mark as processed
+      delete existingMap[frequency];
+    } else {
+      // New station - add with default v2 fields
+      var newStationV2 = self.transformStationToV2(newStation, 'fm');
+      mergedStations.push(newStationV2);
+      self.logger.info('[RTL-SDR Radio] New FM station discovered: ' + frequency + ' MHz');
+    }
+  });
+  
+  // Add remaining existing stations that weren't in scan
+  // (Keep user-deleted stations, manual entries, etc.)
+  for (var frequency in existingMap) {
+    if (existingMap.hasOwnProperty(frequency)) {
+      mergedStations.push(existingMap[frequency]);
+      self.logger.info('[RTL-SDR Radio] Keeping existing FM station not in scan: ' + frequency + ' MHz');
+    }
+  }
+  
+  // Sort by frequency
+  mergedStations.sort(function(a, b) {
+    return parseFloat(a.frequency) - parseFloat(b.frequency);
+  });
+  
+  self.logger.info('[RTL-SDR Radio] FM merge complete: ' + newStations.length + ' scanned, ' + 
+                  mergedStations.length + ' total, ' + reappearedCount + ' reappeared');
+  
+  if (reappearedCount > 0) {
+    self.commandRouter.pushToastMessage('info', 'FM Radio', 
+      reappearedCount + ' deleted station(s) available again');
+  }
+  
+  return mergedStations;
+};
+
+ControllerRtlsdrRadio.prototype.mergeDabScanResults = function(newStations) {
+  var self = this;
+  
+  self.logger.info('[RTL-SDR Radio] Merging DAB scan results with existing database');
+  
+  var mergedStations = [];
+  var existingMap = {};
+  var reappearedCount = 0;
+  
+  // Create map of existing stations by channel + serviceId
+  if (self.stationsDb.dab && self.stationsDb.dab.length > 0) {
+    self.stationsDb.dab.forEach(function(station) {
+      var key = station.channel + '|' + station.serviceId;
+      existingMap[key] = station;
+    });
+  }
+  
+  // Process each scanned station
+  newStations.forEach(function(newStation) {
+    var key = newStation.channel + '|' + newStation.serviceId;
+    var existingStation = existingMap[key];
+    
+    if (existingStation) {
+      // Station exists - merge data
+      var mergedStation = self.mergeStationData(existingStation, newStation, 'dab');
+      
+      // Check if deleted station reappeared
+      if (existingStation.deleted && !existingStation.availableAgain) {
+        mergedStation.availableAgain = true;
+        reappearedCount++;
+        self.logger.info('[RTL-SDR Radio] Deleted DAB station reappeared: ' + 
+                        newStation.name + ' on ' + newStation.channel);
+      }
+      
+      mergedStations.push(mergedStation);
+      
+      // Mark as processed
+      delete existingMap[key];
+    } else {
+      // New station - add with default v2 fields
+      var newStationV2 = self.transformStationToV2(newStation, 'dab');
+      mergedStations.push(newStationV2);
+      self.logger.info('[RTL-SDR Radio] New DAB station discovered: ' + 
+                      newStation.name + ' on ' + newStation.channel);
+    }
+  });
+  
+  // Add remaining existing stations that weren't in scan
+  // (Keep user-deleted stations, manual entries, etc.)
+  for (var key in existingMap) {
+    if (existingMap.hasOwnProperty(key)) {
+      var station = existingMap[key];
+      mergedStations.push(station);
+      self.logger.info('[RTL-SDR Radio] Keeping existing DAB station not in scan: ' + 
+                      station.name + ' on ' + station.channel);
+    }
+  }
+  
+  // Sort alphabetically by name
+  mergedStations.sort(function(a, b) {
+    return a.name.localeCompare(b.name);
+  });
+  
+  self.logger.info('[RTL-SDR Radio] DAB merge complete: ' + newStations.length + ' scanned, ' + 
+                  mergedStations.length + ' total, ' + reappearedCount + ' reappeared');
+  
+  if (reappearedCount > 0) {
+    self.commandRouter.pushToastMessage('info', 'DAB Radio', 
+      reappearedCount + ' deleted service(s) available again');
+  }
+  
+  return mergedStations;
+};
+
+ControllerRtlsdrRadio.prototype.mergeStationData = function(existingStation, newStation, type) {
+  var self = this;
+  
+  // Start with existing station (preserves all user data)
+  var merged = {};
+  for (var key in existingStation) {
+    if (existingStation.hasOwnProperty(key)) {
+      merged[key] = existingStation[key];
+    }
+  }
+  
+  // Update scan-related fields from new station
+  if (type === 'fm') {
+    // FM: Update name, signal_strength, last_seen
+    merged.name = newStation.name;
+    merged.signal_strength = newStation.signal_strength;
+    merged.last_seen = newStation.last_seen;
+    merged.frequency = newStation.frequency; // Ensure frequency stays correct
+  } else if (type === 'dab') {
+    // DAB: Update name, exactName, ensemble, bitrate, audioType, last_seen
+    merged.name = newStation.name;
+    merged.exactName = newStation.exactName;
+    merged.ensemble = newStation.ensemble;
+    merged.channel = newStation.channel;
+    merged.serviceId = newStation.serviceId;
+    merged.ensembleId = newStation.ensembleId;
+    merged.bitrate = newStation.bitrate;
+    merged.audioType = newStation.audioType;
+    merged.last_seen = newStation.last_seen;
+  }
+  
+  // User fields are preserved from existingStation:
+  // - customName
+  // - favorite
+  // - hidden
+  // - deleted
+  // - groups
+  // - notes
+  // - playCount
+  // - lastPlayed
+  // - dateAdded
+  // - userCreated
+  // - availableAgain
+  
+  return merged;
+};
+
 // FM SCANNING METHODS - Phase 3 Implementation
 // ============================================
 
@@ -2471,12 +2663,13 @@ ControllerRtlsdrRadio.prototype.scanFm = function() {
           .then(function(stations) {
             self.logger.info('[RTL-SDR Radio] Found ' + stations.length + ' FM stations');
             
-            // Save to database
-            self.stationsDb.fm = stations;
+            // Merge with existing database (preserves user data)
+            self.stationsDb.fm = self.mergeFmScanResults(stations);
             self.saveStations();
             
+            var totalStations = self.stationsDb.fm.length;
             self.commandRouter.pushToastMessage('success', self.getI18nString('FM_RADIO'), 
-              self.getI18nStringFormatted('TOAST_FM_SCAN_COMPLETE', stations.length));
+              'Scan complete: ' + stations.length + ' found, ' + totalStations + ' total');
             
             self.setDeviceState('idle');
             self.scanProcess = null;
@@ -2691,12 +2884,13 @@ ControllerRtlsdrRadio.prototype.scanDab = function() {
           .then(function(stations) {
             self.logger.info('[RTL-SDR Radio] Found ' + stations.length + ' DAB services');
             
-            // Save to database
-            self.stationsDb.dab = stations;
+            // Merge with existing database (preserves user data)
+            self.stationsDb.dab = self.mergeDabScanResults(stations);
             self.saveStations();
             
+            var totalStations = self.stationsDb.dab.length;
             self.commandRouter.pushToastMessage('success', self.getI18nString('DAB_RADIO'), 
-              self.getI18nStringFormatted('TOAST_DAB_SCAN_COMPLETE', stations.length));
+              'Scan complete: ' + stations.length + ' found, ' + totalStations + ' total');
             
             self.setDeviceState('idle');
             self.scanProcess = null;
