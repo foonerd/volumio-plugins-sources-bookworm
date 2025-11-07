@@ -1,12 +1,12 @@
 {
   "name": "rtlsdr_radio",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Receive FM and DAB/DAB+ radio using RTL-SDR USB tuners",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "Nerd",
+  "author": "Just a Nerd",
   "license": "GPL-3.0",
   "repository": "https://github.com/foonerd/volumio-plugins-sources-bookworm",
   "volumio_info": {
