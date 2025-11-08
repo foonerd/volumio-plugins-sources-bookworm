@@ -373,12 +373,13 @@ ControllerRtlsdrRadio.prototype.startManagementServer = function() {
 ControllerRtlsdrRadio.prototype.getManagementUrl = function() {
   var self = this;
   
-  // Priority: 1) Detected from request, 2) MDNS hostname, 3) Localhost
+  // Priority: 1) User-configured override, 2) MDNS hostname
   var hostname;
+  var override = self.config.get('hostname_override', '');
   
-  if (self.detectedHostname) {
-    // Use actual hostname/IP from user's request
-    hostname = self.detectedHostname;
+  if (override && override.trim() !== '') {
+    // User specified IP or hostname
+    hostname = override.trim();
   } else {
     // Fallback to MDNS hostname
     var systemName = self.commandRouter.sharedVars.get('system.name') || 'volumio';
@@ -401,7 +402,7 @@ ControllerRtlsdrRadio.prototype.pushManagerMenuItem = function() {
         url: self.getManagementUrl()
       },
       name: 'RTL-SDR Manager',
-      icon: 'fa fa-wifi'  // FontAwesome WiFi icon
+      icon: 'fa fa-signal'
     }]);
     
     self.logger.info('[RTL-SDR Radio] Manager menu item added');
@@ -551,6 +552,13 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
           value: 'Rename stations, edit FM frequencies, manage favorites, hide/unhide, delete/restore stations, search, and more - all with a mobile-friendly interface'
         },
         {
+          id: 'hostname_override',
+          element: 'input',
+          label: 'Hostname/IP Override (Optional)',
+          value: self.config.get('hostname_override', ''),
+          doc: 'Leave blank to use MDNS hostname. Enter your IP address (e.g. 192.168.30.208) if MDNS is unavailable'
+        },
+        {
           id: 'management_url',
           element: 'message',
           label: 'Manager URL:',
@@ -609,7 +617,7 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
       },
       saveButton: {
         label: 'Save Settings',
-        data: ['enable_menu_item']
+        data: ['hostname_override', 'enable_menu_item']
       }
     };
     uiconf.sections.splice(2, 0, webManagementSection);
@@ -1293,6 +1301,11 @@ ControllerRtlsdrRadio.prototype.saveWebManagerSettings = function(data) {
   
   try {
     var needsRestart = false;
+    
+    // Save hostname override (if provided)
+    if (data.hostname_override !== undefined) {
+      self.config.set('hostname_override', data.hostname_override);
+    }
     
     // Save menu item enable state (Option 3)
     if (data.enable_menu_item !== undefined) {
