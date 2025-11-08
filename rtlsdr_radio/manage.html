@@ -982,7 +982,7 @@
       
       listEl.innerHTML = filtered.map((station) => {
         const realIdx = stations.indexOf(station);
-        const displayName = station.customName || station.name || 'Unknown';
+        const displayName = station.customName || station.name || t('STATION_NAME_UNKNOWN');
         
         let icon = '';
         if (station.favorite) {
@@ -1060,7 +1060,7 @@
           (station.type === 'fm' ? s.frequency === station.frequency : s.exactName === station.exactName)
         ));
         
-        const displayName = station.customName || station.name || 'Unknown';
+        const displayName = station.customName || station.name || t('STATION_NAME_UNKNOWN');
         const frequency = station.type === 'fm' ? station.frequency + ' MHz' : (station.channelName || '');
         const typeLabel = station.type.toUpperCase();
         
@@ -1334,7 +1334,7 @@
         setTimeout(() => loadStations(), 1000);
         
       } catch (error) {
-        showToast('Failed to clear: ' + error.message, 'error');
+        showToast(t('TOAST_CLEAR_FAILED', error.message), 'error');
       }
     });
     
@@ -1361,7 +1361,7 @@
         setTimeout(() => loadStations(), 1000);
         
       } catch (error) {
-        showToast('Failed to clear: ' + error.message, 'error');
+        showToast(t('TOAST_CLEAR_FAILED', error.message), 'error');
       }
     });
     
@@ -1383,7 +1383,7 @@
         setTimeout(() => loadStations(), 12000);
         
       } catch (error) {
-        showToast('Failed to start rescan: ' + error.message, 'error');
+        showToast(t('TOAST_RESCAN_FAILED', error.message), 'error');
       }
     });
     
@@ -1405,7 +1405,7 @@
         setTimeout(() => loadStations(), 65000);
         
       } catch (error) {
-        showToast('Failed to start rescan: ' + error.message, 'error');
+        showToast(t('TOAST_RESCAN_FAILED', error.message), 'error');
       }
     });
     
@@ -1432,7 +1432,7 @@
         setTimeout(() => loadStations(), 1000);
         
       } catch (error) {
-        showToast('Failed to purge: ' + error.message, 'error');
+        showToast(t('TOAST_WEB_RECYCLE_EMPTY_FAILED', error.message), 'error');
       }
     });
     
