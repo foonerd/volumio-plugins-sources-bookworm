@@ -33,6 +33,7 @@ function ControllerRtlsdrRadio(context) {
   self.expressApp = null;
   self.expressServer = null;
   self.managementPort = 3456;
+  self.detectedHostname = null; // Actual hostname/IP from HTTP requests
 }
 
 ControllerRtlsdrRadio.prototype.onVolumioStart = function() {
@@ -64,6 +65,11 @@ ControllerRtlsdrRadio.prototype.onStart = function() {
       return self.startManagementServer();
     })
     .then(function() {
+      // Setup manager integration options if enabled (Option 3)
+      if (self.config.get('manager_menu_item_enabled', false)) {
+        self.pushManagerMenuItem();
+      }
+      
       self.addToBrowseSources();
       self.logger.info('[RTL-SDR Radio] Plugin started successfully');
       defer.resolve();
@@ -109,6 +115,11 @@ ControllerRtlsdrRadio.prototype.onStop = function() {
   
   // Remove browse source
   self.commandRouter.volumioRemoveToBrowseSources('FM/DAB Radio');
+  
+  // Cleanup manager integration (Option 3)
+  if (self.config.get('manager_menu_item_enabled', false)) {
+    self.removeManagerMenuItem();
+  }
   
   // Stop management server
   if (self.expressServer) {
@@ -164,6 +175,20 @@ ControllerRtlsdrRadio.prototype.startManagementServer = function() {
     self.expressApp.use(bodyParser.json());
     self.expressApp.use(bodyParser.urlencoded({ extended: true }));
     
+    // Middleware: Detect actual hostname/IP from request
+    self.expressApp.use(function(req, res, next) {
+      if (req.headers.host) {
+        // Extract hostname/IP without port
+        var hostWithoutPort = req.headers.host.split(':')[0];
+        
+        // Only update if not localhost (which doesn't help)
+        if (hostWithoutPort !== 'localhost' && hostWithoutPort !== '127.0.0.1') {
+          self.detectedHostname = hostWithoutPort;
+        }
+      }
+      next();
+    });
+    
     // Serve static HTML page
     self.expressApp.get('/', function(req, res) {
       res.sendFile(path.join(__dirname, 'manage.html'));
@@ -171,6 +196,11 @@ ControllerRtlsdrRadio.prototype.startManagementServer = function() {
     
     self.expressApp.get('/manage', function(req, res) {
       res.sendFile(path.join(__dirname, 'manage.html'));
+    });
+    
+    // Serve antenna icon (for potential future use)
+    self.expressApp.get('/icon', function(req, res) {
+      res.sendFile(path.join(__dirname, 'assets', 'antenna.svg'));
     });
     
     // API: Get all stations
@@ -342,9 +372,54 @@ ControllerRtlsdrRadio.prototype.startManagementServer = function() {
 
 ControllerRtlsdrRadio.prototype.getManagementUrl = function() {
   var self = this;
-  // Get hostname from Volumio
-  var hostname = self.commandRouter.sharedVars.get('system.name') || 'volumio';
-  return 'http://' + hostname + '.local:' + self.managementPort;
+  
+  // Priority: 1) Detected from request, 2) MDNS hostname, 3) Localhost
+  var hostname;
+  
+  if (self.detectedHostname) {
+    // Use actual hostname/IP from user's request
+    hostname = self.detectedHostname;
+  } else {
+    // Fallback to MDNS hostname
+    var systemName = self.commandRouter.sharedVars.get('system.name') || 'volumio';
+    hostname = systemName + '.local';
+  }
+  
+  return 'http://' + hostname + ':' + self.managementPort;
+};
+
+// Manager Integration Methods (v0.2.5 Testing)
+
+ControllerRtlsdrRadio.prototype.pushManagerMenuItem = function() {
+  var self = this;
+  
+  try {
+    self.commandRouter.pushMenuItems([{
+      id: 'iframe-page',
+      parent: 'settings',
+      params: {
+        url: self.getManagementUrl()
+      },
+      name: 'RTL-SDR Manager',
+      icon: 'fa fa-wifi'  // FontAwesome WiFi icon
+    }]);
+    
+    self.logger.info('[RTL-SDR Radio] Manager menu item added');
+  } catch (e) {
+    self.logger.error('[RTL-SDR Radio] Failed to push manager menu item: ' + e);
+  }
+};
+
+ControllerRtlsdrRadio.prototype.removeManagerMenuItem = function() {
+  var self = this;
+  
+  try {
+    // Note: Volumio doesn't have a removeMenuItem API
+    // Item will be removed on next restart when not re-pushed
+    self.logger.info('[RTL-SDR Radio] Manager menu item will be removed on next restart');
+  } catch (e) {
+    self.logger.error('[RTL-SDR Radio] Error removing manager menu item: ' + e);
+  }
 };
 
 ControllerRtlsdrRadio.prototype.onVolumioStop = function() {
@@ -461,27 +536,81 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
     var manualPlayback = uiconf.sections[1];
     manualPlayback.content[0].value = self.config.get('manual_fm_frequency', '98.8');
     
-    // Add web management interface section
+    // Add web management interface section (3 working options)
     var webManagementSection = {
       id: 'web_management',
       element: 'section',
       label: 'Web Station Management',
       icon: 'fa-edit',
-      description: 'Use the web interface for advanced station management with full editing capabilities',
+      description: 'Access the web-based station manager',
       content: [
         {
           id: 'management_info',
           element: 'message',
-          label: 'Access the web-based station manager for:',
-          value: 'Rename stations, manage favorites, hide/unhide, delete stations, and search - all with a mobile-friendly interface'
+          label: 'Web Manager Features:',
+          value: 'Rename stations, edit FM frequencies, manage favorites, hide/unhide, delete/restore stations, search, and more - all with a mobile-friendly interface'
         },
         {
           id: 'management_url',
           element: 'message',
-          label: 'Web Interface URL:',
+          label: 'Manager URL:',
           value: self.getManagementUrl()
+        },
+        {
+          id: 'option_divider_1',
+          element: 'message',
+          label: 'Option 1: Open in New Tab',
+          value: 'Opens manager in new browser tab/window'
+        },
+        {
+          id: 'open_link_button',
+          element: 'button',
+          label: 'Open in New Tab',
+          doc: 'Opens manager in new browser tab',
+          onClick: {
+            type: 'openUrl',
+            url: self.getManagementUrl()
+          }
+        },
+        {
+          id: 'option_divider_2',
+          element: 'message',
+          label: 'Option 2: Open in Current Window',
+          value: 'Opens manager in full-screen within Volumio'
+        },
+        {
+          id: 'open_current_button',
+          element: 'button',
+          label: 'Open in Current Window',
+          doc: 'Opens manager in iframe within Volumio',
+          onClick: {
+            type: 'openUrl',
+            url: '/iframe-page/' + self.getManagementUrl().replace(/\//g, '~2F')
+          }
+        },
+        {
+          id: 'option_divider_3',
+          element: 'message',
+          label: 'Option 3: Add to Settings Menu',
+          value: 'Adds "RTL-SDR Manager" to hamburger menu (requires MDNS hostname, restart needed)'
+        },
+        {
+          id: 'enable_menu_item',
+          element: 'switch',
+          label: 'Enable Settings Menu Item',
+          value: self.config.get('manager_menu_item_enabled', false),
+          doc: 'Adds RTL-SDR Manager to Settings menu (uses MDNS hostname, requires restart. If MDNS unavailable, use Option 2 instead)'
         }
-      ]
+      ],
+      onSave: {
+        type: 'controller',
+        endpoint: 'music_service/rtlsdr_radio',
+        method: 'saveWebManagerSettings'
+      },
+      saveButton: {
+        label: 'Save Settings',
+        data: ['enable_menu_item']
+      }
     };
     uiconf.sections.splice(2, 0, webManagementSection);
     
@@ -1151,6 +1280,48 @@ ControllerRtlsdrRadio.prototype.saveStationSettings = function(data) {
     defer.resolve();
   } catch (e) {
     self.logger.error('[RTL-SDR Radio] Failed to save station settings: ' + e);
+    self.commandRouter.pushToastMessage('error', 'FM/DAB Radio', 'Failed to save settings');
+    defer.reject(e);
+  }
+  
+  return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.saveWebManagerSettings = function(data) {
+  var self = this;
+  var defer = libQ.defer();
+  
+  try {
+    var needsRestart = false;
+    
+    // Save menu item enable state (Option 3)
+    if (data.enable_menu_item !== undefined) {
+      var oldValue = self.config.get('manager_menu_item_enabled', false);
+      var newValue = data.enable_menu_item;
+      
+      self.config.set('manager_menu_item_enabled', newValue);
+      
+      if (oldValue !== newValue) {
+        needsRestart = true;
+        if (newValue) {
+          self.pushManagerMenuItem();
+        } else {
+          self.removeManagerMenuItem();
+        }
+      }
+    }
+    
+    if (needsRestart) {
+      self.commandRouter.pushToastMessage('success', 'FM/DAB Radio', 
+        'Settings saved. Please restart Volumio for changes to take effect.');
+    } else {
+      self.commandRouter.pushToastMessage('success', 'FM/DAB Radio', 
+        'Settings saved successfully.');
+    }
+    
+    defer.resolve();
+  } catch (e) {
+    self.logger.error('[RTL-SDR Radio] Failed to save web manager settings: ' + e);
     self.commandRouter.pushToastMessage('error', 'FM/DAB Radio', 'Failed to save settings');
     defer.reject(e);
   }

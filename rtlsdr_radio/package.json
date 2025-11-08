@@ -1,6 +1,6 @@
 {
   "name": "rtlsdr_radio",
-  "version": "0.5.7",
+  "version": "0.5.8",
   "description": "Receive FM and DAB/DAB+ radio using RTL-SDR USB tuners",
   "main": "index.js",
   "scripts": {
@@ -23,7 +23,7 @@
     ],
     "has_alsa_contribution": true,
     "details": "Receive FM and DAB/DAB+ radio using RTL-SDR USB tuners",
-    "changelog": "v0.2.0 - Added web-based station management interface"
+    "changelog": "v0.5.8 - Fixed hostname detection (MDNS/IP auto-detect) and URL encoding for iframe options"
   },
   "engines": {
     "node": ">=20",
