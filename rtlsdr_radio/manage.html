@@ -17,7 +17,6 @@
       background: #1c1c1c;
       color: #e0e0e0;
       padding: 0;
-      padding-bottom: 80px;
       margin: 0;
     }
     
@@ -139,6 +138,23 @@
       top: 50%;
       transform: translateY(-50%);
       color: #666;
+    }
+    
+    .save-status-inline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #999;
+      font-size: 13px;
+      padding: 0 10px;
+    }
+    
+    .save-status-inline.changed {
+      color: #e67e22;
+    }
+    
+    .save-status-inline .fa {
+      font-size: 14px;
     }
     
     .station-list {
@@ -264,6 +280,26 @@
       flex-wrap: wrap;
     }
     
+    .btn-save-row {
+      display: none;
+      background: #27ae60;
+      color: #fff;
+      animation: fadeIn 0.2s;
+    }
+    
+    .btn-save-row:hover {
+      background: #229954;
+    }
+    
+    .station-item.dirty .btn-save-row {
+      display: inline-flex;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.8); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    
     .btn {
       padding: 8px 16px;
       border: none;
@@ -364,7 +400,7 @@
     }
     
     .save-bar {
-      position: fixed;
+      position: sticky;
       bottom: 0;
       left: 0;
       right: 0;
@@ -376,6 +412,7 @@
       justify-content: space-between;
       align-items: center;
       z-index: 100;
+      margin-top: 20px;
     }
     
     .save-bar .info {
@@ -758,6 +795,14 @@
           <i class="fa fa-trash"></i>
           <span id="btn-clear-fm">Clear All FM</span>
         </button>
+        <div class="save-status-inline" id="save-status-inline">
+          <i class="fa fa-check-circle"></i>
+          <span id="status-text-inline">No changes</span>
+        </div>
+        <button class="btn btn-primary" id="save-btn-inline" disabled>
+          <i class="fa fa-floppy-o"></i>
+          <span id="btn-save-text-inline">Save</span>
+        </button>
       </div>
       
       <div id="fm-list" class="station-list"></div>
@@ -915,6 +960,7 @@
       document.getElementById('btn-rescan-dab').textContent = t('BTN_RESCAN_DAB');
       document.getElementById('btn-empty-recycle').textContent = t('BTN_EMPTY_RECYCLE');
       document.getElementById('btn-save-text').textContent = t('BTN_SAVE');
+      document.getElementById('btn-save-text-inline').textContent = t('BTN_SAVE');
       document.getElementById('btn-cancel-text').textContent = t('BTN_CANCEL');
       document.getElementById('recycle-notice-text').textContent = t('RECYCLE_NOTICE');
       document.getElementById('fm-search').placeholder = t('SEARCH_FM');
@@ -1024,6 +1070,9 @@
               <button class="btn btn-danger" title="${t('BTN_DELETE')}" data-type="${type}" data-index="${realIdx}" data-action="delete">
                 <i class="fa fa-trash"></i>
               </button>
+              <button class="btn btn-save-row" title="${t('BTN_SAVE')}" data-type="${type}" data-index="${realIdx}" data-action="save-row">
+                <i class="fa fa-floppy-o"></i>
+              </button>
             </div>
           </div>
         `;
@@ -1098,7 +1147,7 @@
           const idx = parseInt(e.target.dataset.index);
           const stations = type === 'fm' ? fmStations : dabStations;
           stations[idx].customName = e.target.value;
-          markChanged();
+          markRowDirty(type, idx);
         });
       });
       
@@ -1135,10 +1184,16 @@
       });
       
       document.querySelectorAll(`button[data-type="${type}"]`).forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', async (e) => {
           const idx = parseInt(e.currentTarget.dataset.index);
           const action = e.currentTarget.dataset.action;
           const stations = type === 'fm' ? fmStations : dabStations;
+          
+          if (action === 'save-row') {
+            // Save this specific row
+            await saveRow(type, idx);
+            return;
+          }
           
           if (action === 'favorite') {
             stations[idx].favorite = !stations[idx].favorite;
@@ -1152,7 +1207,7 @@
             }
           }
           
-          markChanged();
+          markRowDirty(type, idx);
           renderStations(type, stations);
           renderRecycleBin();
           updateStats();
@@ -1268,8 +1323,79 @@
       document.getElementById('save-btn').disabled = false;
     }
     
+    // Mark a specific row as dirty
+    function markRowDirty(type, idx) {
+      const stations = type === 'fm' ? fmStations : dabStations;
+      stations[idx].dirty = true;
+      
+      // Mark the station-item element as dirty
+      const stationItem = document.querySelector(`.station-item[data-type="${type}"][data-index="${idx}"]`);
+      if (stationItem) {
+        stationItem.classList.add('dirty');
+      }
+      
+      // Update global save status
+      markChanged();
+      updateDirtyCount();
+    }
+    
+    // Update dirty count in save button text
+    function updateDirtyCount() {
+      const dirtyFm = fmStations.filter(s => s.dirty && !s.deleted).length;
+      const dirtyDab = dabStations.filter(s => s.dirty && !s.deleted).length;
+      const totalDirty = dirtyFm + dirtyDab;
+      
+      if (totalDirty > 0) {
+        document.getElementById('btn-save-text').textContent = t('BTN_SAVE') + ' (' + totalDirty + ')';
+        document.getElementById('btn-save-text-inline').textContent = t('BTN_SAVE') + ' (' + totalDirty + ')';
+      } else {
+        document.getElementById('btn-save-text').textContent = t('BTN_SAVE');
+        document.getElementById('btn-save-text-inline').textContent = t('BTN_SAVE');
+      }
+    }
+    
+    // Save a specific row
+    async function saveRow(type, idx) {
+      const stations = type === 'fm' ? fmStations : dabStations;
+      const station = stations[idx];
+      
+      if (!station.dirty) return;
+      
+      showToast(t('STATUS_SAVING') + '...', 'info');
+      
+      try {
+        // Save stations to backend
+        await saveChanges();
+        
+        // Mark row as clean
+        station.dirty = false;
+        
+        // Remove dirty class from UI
+        const stationItem = document.querySelector(`.station-item[data-type="${type}"][data-index="${idx}"]`);
+        if (stationItem) {
+          stationItem.classList.remove('dirty');
+        }
+        
+        // Check if any other rows are dirty
+        const dirtyFm = fmStations.filter(s => s.dirty && !s.deleted).length;
+        const dirtyDab = dabStations.filter(s => s.dirty && !s.deleted).length;
+        
+        if (dirtyFm === 0 && dirtyDab === 0) {
+          hasChanges = false;
+          updateSaveStatus(t('STATUS_SAVED'), false);
+        } else {
+          updateDirtyCount();
+        }
+        
+        showToast(t('TOAST_SAVED'), 'success', 1500);
+      } catch (error) {
+        showToast(t('TOAST_SAVE_FAILED', error.message), 'error');
+      }
+    }
+    
     // Update save status
     function updateSaveStatus(message, changed) {
+      // Update bottom save bar
       const statusEl = document.getElementById('save-status');
       const iconEl = statusEl.querySelector('.fa');
       const textEl = document.getElementById('status-text');
@@ -1283,12 +1409,32 @@
         statusEl.classList.remove('changed');
         iconEl.className = 'fa fa-check-circle';
       }
+      
+      // Update inline save status
+      const statusInlineEl = document.getElementById('save-status-inline');
+      const iconInlineEl = statusInlineEl.querySelector('.fa');
+      const textInlineEl = document.getElementById('status-text-inline');
+      
+      textInlineEl.textContent = message;
+      
+      if (changed) {
+        statusInlineEl.classList.add('changed');
+        iconInlineEl.className = 'fa fa-exclamation-triangle';
+      } else {
+        statusInlineEl.classList.remove('changed');
+        iconInlineEl.className = 'fa fa-check-circle';
+      }
+      
+      // Update both save buttons
+      document.getElementById('save-btn').disabled = !changed;
+      document.getElementById('save-btn-inline').disabled = !changed;
     }
     
     // Save changes
     async function saveChanges() {
       try {
         document.getElementById('save-btn').disabled = true;
+        document.getElementById('save-btn-inline').disabled = true;
         updateSaveStatus(t('STATUS_SAVING'), false);
         
         const response = await fetch('/api/stations', {
@@ -1299,14 +1445,25 @@
         
         if (!response.ok) throw new Error('Save failed');
         
+        // Clear all dirty flags
+        fmStations.forEach(s => s.dirty = false);
+        dabStations.forEach(s => s.dirty = false);
+        
+        // Remove dirty class from all rows
+        document.querySelectorAll('.station-item.dirty').forEach(el => {
+          el.classList.remove('dirty');
+        });
+        
         hasChanges = false;
         updateSaveStatus(t('STATUS_SAVED'), false);
+        updateDirtyCount();
         showToast(t('TOAST_SAVED'));
         setTimeout(() => loadStations(), 1000);
         
       } catch (error) {
         showToast(t('TOAST_SAVE_FAILED', error.message), 'error');
         document.getElementById('save-btn').disabled = false;
+        document.getElementById('save-btn-inline').disabled = false;
         updateSaveStatus(t('STATUS_UNSAVED'), true);
       }
     }
@@ -1472,6 +1629,7 @@
     
     // Save button
     document.getElementById('save-btn').addEventListener('click', saveChanges);
+    document.getElementById('save-btn-inline').addEventListener('click', saveChanges);
     
     // Warn on unsaved changes
     window.addEventListener('beforeunload', (e) => {
