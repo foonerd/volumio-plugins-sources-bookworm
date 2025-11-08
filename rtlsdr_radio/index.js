@@ -869,10 +869,7 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
           message: 'callMethod',
           data: {
             endpoint: 'music_service/rtlsdr_radio',
-            method: 'testManualFm',
-            data: {
-              manual_fm_frequency: 'manual_fm_frequency'
-            }
+            method: 'testManualFm'
           }
         },
         visibleIf: {
@@ -932,12 +929,7 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
           message: 'callMethod',
           data: {
             endpoint: 'music_service/rtlsdr_radio',
-            method: 'testManualDab',
-            data: {
-              ensemble: 'manual_dab_ensemble',
-              service_name: 'manual_dab_service',
-              gain: 'manual_dab_gain'
-            }
+            method: 'testManualDab'
           }
         },
         visibleIf: {
