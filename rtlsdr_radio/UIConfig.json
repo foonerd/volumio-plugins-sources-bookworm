@@ -4,22 +4,20 @@
   },
   "sections": [
     {
-      "id": "radio_settings",
+      "id": "fm_radio",
       "element": "section",
-      "label": "Radio Settings",
+      "label": "FM Radio",
       "icon": "fa-signal",
       "onSave": {
         "type": "controller",
         "endpoint": "music_service/rtlsdr_radio",
-        "method": "saveConfig"
+        "method": "saveFmSettings"
       },
       "saveButton": {
-        "label": "Save",
+        "label": "Save FM Settings",
         "data": [
           "fm_enabled",
-          "dab_enabled",
           "fm_gain",
-          "dab_gain",
           "scan_sensitivity"
         ]
       },
@@ -32,25 +30,15 @@
           "doc": "Enable FM radio reception"
         },
         {
-          "id": "dab_enabled",
-          "element": "switch",
-          "label": "Enable DAB/DAB+ Radio",
-          "value": true,
-          "doc": "Enable DAB and DAB+ radio reception"
-        },
-        {
           "id": "fm_gain",
           "element": "input",
           "label": "FM Gain",
           "value": 50,
-          "doc": "RTL-SDR gain for FM reception (0-100)"
-        },
-        {
-          "id": "dab_gain",
-          "element": "input",
-          "label": "DAB Gain",
-          "value": 80,
-          "doc": "RTL-SDR gain for DAB reception (0-100)"
+          "doc": "RTL-SDR gain for FM reception (0-100)",
+          "visibleIf": {
+            "field": "fm_enabled",
+            "value": true
+          }
         },
         {
           "id": "scan_sensitivity",
@@ -82,42 +70,12 @@
               "label": "Very Sensitive (+3 dB) - Weaker signals, may include noise"
             }
           ],
-          "doc": "How sensitive the FM scanner should be when detecting stations. Higher values find only the strongest signals, lower values find more stations but may include noise."
-        }
-      ]
-    },
-    {
-      "id": "manual_playback",
-      "element": "section",
-      "label": "Manual Playback",
-      "icon": "fa-play-circle",
-      "onSave": {
-        "type": "controller",
-        "endpoint": "music_service/rtlsdr_radio",
-        "method": "saveManualFrequency"
-      },
-      "saveButton": {
-        "label": "Save and Play",
-        "data": [
-          "manual_fm_frequency"
-        ]
-      },
-      "content": [
-        {
-          "id": "manual_fm_frequency",
-          "element": "input",
-          "label": "FM Frequency (MHz)",
-          "value": "98.8",
-          "doc": "Enter FM frequency (88.0 - 108.0 MHz) and click Save and Play"
-        }
-      ]
-    },
-    {
-      "id": "scanning",
-      "element": "section",
-      "label": "Station Scanning",
-      "icon": "fa-search",
-      "content": [
+          "doc": "How sensitive the FM scanner should be when detecting stations. Higher values find only the strongest signals, lower values find more stations but may include noise.",
+          "visibleIf": {
+            "field": "fm_enabled",
+            "value": true
+          }
+        },
         {
           "id": "scan_fm",
           "element": "button",
@@ -127,7 +85,49 @@
             "endpoint": "music_service/rtlsdr_radio",
             "method": "scanFm"
           },
-          "doc": "Scan for available FM radio stations"
+          "doc": "Scan for available FM radio stations",
+          "visibleIf": {
+            "field": "fm_enabled",
+            "value": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "dab_radio",
+      "element": "section",
+      "label": "DAB/DAB+ Radio",
+      "icon": "fa-rss",
+      "onSave": {
+        "type": "controller",
+        "endpoint": "music_service/rtlsdr_radio",
+        "method": "saveDabSettings"
+      },
+      "saveButton": {
+        "label": "Save DAB Settings",
+        "data": [
+          "dab_enabled",
+          "dab_gain"
+        ]
+      },
+      "content": [
+        {
+          "id": "dab_enabled",
+          "element": "switch",
+          "label": "Enable DAB/DAB+ Radio",
+          "value": true,
+          "doc": "Enable DAB and DAB+ radio reception"
+        },
+        {
+          "id": "dab_gain",
+          "element": "input",
+          "label": "DAB Gain",
+          "value": 80,
+          "doc": "RTL-SDR gain for DAB reception (0-100)",
+          "visibleIf": {
+            "field": "dab_enabled",
+            "value": true
+          }
         },
         {
           "id": "scan_dab",
@@ -138,7 +138,271 @@
             "endpoint": "music_service/rtlsdr_radio",
             "method": "scanDab"
           },
-          "doc": "Scan for available DAB/DAB+ stations (may take 2-3 minutes)"
+          "doc": "Scan for available DAB/DAB+ stations (may take 2-3 minutes)",
+          "visibleIf": {
+            "field": "dab_enabled",
+            "value": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "web_management",
+      "element": "section",
+      "label": "Web Station Management",
+      "icon": "fa-edit",
+      "onSave": {
+        "type": "controller",
+        "endpoint": "music_service/rtlsdr_radio",
+        "method": "saveWebManagementToggle"
+      },
+      "saveButton": {
+        "label": "Save",
+        "data": [
+          "show_web_management"
+        ]
+      },
+      "content": [
+        {
+          "id": "show_web_management",
+          "element": "switch",
+          "label": "Show Web Management",
+          "value": false,
+          "doc": "Toggle to show web manager access options"
+        },
+        {
+          "id": "open_current_button",
+          "element": "button",
+          "label": "Open in Current Window",
+          "onClick": {
+            "type": "openUrl",
+            "url": "/iframe-page/http:~2F~2Flocalhost:3456"
+          },
+          "doc": "Opens station manager in iframe within Volumio",
+          "visibleIf": {
+            "field": "show_web_management",
+            "value": true
+          }
+        },
+        {
+          "id": "open_tab_button",
+          "element": "button",
+          "label": "Open in New Tab",
+          "onClick": {
+            "type": "openUrl",
+            "url": "http://localhost:3456"
+          },
+          "doc": "Opens station manager in new browser tab",
+          "visibleIf": {
+            "field": "show_web_management",
+            "value": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "management_config",
+      "element": "section",
+      "label": "Web Station Management Configuration",
+      "icon": "fa-cog",
+      "onSave": {
+        "type": "controller",
+        "endpoint": "music_service/rtlsdr_radio",
+        "method": "saveWebManagerSettings"
+      },
+      "saveButton": {
+        "label": "Save Configuration",
+        "data": [
+          "show_management_config",
+          "hostname_override",
+          "enable_menu_item"
+        ]
+      },
+      "content": [
+        {
+          "id": "show_management_config",
+          "element": "switch",
+          "label": "Show Configuration",
+          "value": false,
+          "doc": "Toggle to show advanced manager configuration"
+        },
+        {
+          "id": "hostname_override",
+          "element": "input",
+          "label": "Hostname/IP Override (Optional)",
+          "value": "",
+          "doc": "Leave blank to use MDNS hostname. Enter your IP address (e.g. 192.168.30.208) if MDNS is unavailable",
+          "visibleIf": {
+            "field": "show_management_config",
+            "value": true
+          }
+        },
+        {
+          "id": "management_url",
+          "element": "message",
+          "label": "Manager URL:",
+          "value": "http://localhost:3456",
+          "visibleIf": {
+            "field": "show_management_config",
+            "value": true
+          }
+        },
+        {
+          "id": "enable_menu_item",
+          "element": "switch",
+          "label": "Enable Settings Menu Item",
+          "value": false,
+          "doc": "Adds RTL-SDR Manager to Settings menu (requires restart)",
+          "visibleIf": {
+            "field": "show_management_config",
+            "value": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "diagnostics",
+      "element": "section",
+      "label": "Diagnostics",
+      "icon": "fa-wrench",
+      "onSave": {
+        "type": "controller",
+        "endpoint": "music_service/rtlsdr_radio",
+        "method": "saveDiagnosticsSettings"
+      },
+      "saveButton": {
+        "label": "Save",
+        "data": [
+          "show_diagnostics",
+          "manual_fm_frequency",
+          "manual_dab_ensemble",
+          "manual_dab_service",
+          "manual_dab_gain"
+        ]
+      },
+      "content": [
+        {
+          "id": "show_diagnostics",
+          "element": "switch",
+          "label": "Show Diagnostics",
+          "value": false,
+          "doc": "Toggle to show manual testing tools for different USB dongles"
+        },
+        {
+          "id": "diagnostics_purpose",
+          "element": "message",
+          "label": "",
+          "value": "Use these tools to test FM and DAB reception with different gain settings for your USB dongle",
+          "visibleIf": {
+            "field": "show_diagnostics",
+            "value": true
+          }
+        },
+        {
+          "id": "manual_fm_divider",
+          "element": "message",
+          "label": "Manual FM Test",
+          "value": "",
+          "visibleIf": {
+            "field": "show_diagnostics",
+            "value": true
+          }
+        },
+        {
+          "id": "manual_fm_frequency",
+          "element": "input",
+          "label": "FM Frequency (MHz)",
+          "value": "98.8",
+          "doc": "Enter FM frequency (88.0 - 108.0 MHz) for testing",
+          "visibleIf": {
+            "field": "show_diagnostics",
+            "value": true
+          }
+        },
+        {
+          "id": "test_fm_button",
+          "element": "button",
+          "label": "Test FM Station",
+          "onClick": {
+            "type": "emit",
+            "message": "callMethod",
+            "data": {
+              "endpoint": "music_service/rtlsdr_radio",
+              "method": "testManualFm",
+              "data": {
+                "manual_fm_frequency": "98.8"
+              }
+            }
+          },
+          "visibleIf": {
+            "field": "show_diagnostics",
+            "value": true
+          }
+        },
+        {
+          "id": "manual_dab_divider",
+          "element": "message",
+          "label": "Manual DAB Test",
+          "value": "",
+          "visibleIf": {
+            "field": "show_diagnostics",
+            "value": true
+          }
+        },
+        {
+          "id": "manual_dab_ensemble",
+          "element": "input",
+          "label": "Ensemble",
+          "value": "12B",
+          "doc": "DAB ensemble (e.g., 12B)",
+          "visibleIf": {
+            "field": "show_diagnostics",
+            "value": true
+          }
+        },
+        {
+          "id": "manual_dab_service",
+          "element": "input",
+          "label": "Service Name",
+          "value": "",
+          "doc": "DAB service name (e.g., BBC Radio 1)",
+          "visibleIf": {
+            "field": "show_diagnostics",
+            "value": true
+          }
+        },
+        {
+          "id": "manual_dab_gain",
+          "element": "input",
+          "label": "Test Gain",
+          "value": 80,
+          "doc": "Gain to use for this test (0-100, different dongles need different values)",
+          "visibleIf": {
+            "field": "show_diagnostics",
+            "value": true
+          }
+        },
+        {
+          "id": "test_dab_button",
+          "element": "button",
+          "label": "Test DAB Station",
+          "onClick": {
+            "type": "emit",
+            "message": "callMethod",
+            "data": {
+              "endpoint": "music_service/rtlsdr_radio",
+              "method": "testManualDab",
+              "data": {
+                "ensemble": "12B",
+                "service_name": "",
+                "gain": 80
+              }
+            }
+          },
+          "visibleIf": {
+            "field": "show_diagnostics",
+            "value": true
+          }
         }
       ]
     }
