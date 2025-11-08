@@ -25,10 +25,13 @@ Receive FM and DAB/DAB+ radio using RTL-SDR USB tuners.
 ## Installation
 
 1. Install plugin through Volumio plugin store
-2. Connect RTL-SDR USB dongle
-3. Enable plugin in Volumio settings
-4. Scan for available stations
-5. Browse and play stations from "FM/DAB Radio" source
+2. **IMPORTANT: Restart Volumio** (`sudo systemctl restart volumio`)
+3. Connect RTL-SDR USB dongle
+4. Enable plugin in Volumio settings
+5. Scan for available stations
+6. Browse and play stations from "FM/DAB Radio" source
+
+**Note:** You MUST restart Volumio after installation and before enabling the plugin. Enabling without restart will cause errors.
 
 ## Development
 
@@ -48,4 +51,4 @@ GPL-3.0
 
 ## Author
 
-Nerd
+Just a Nerd

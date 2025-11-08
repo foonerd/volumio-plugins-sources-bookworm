@@ -528,6 +528,16 @@ ControllerRtlsdrRadio.prototype.getI18nStringFormatted = function(key, ...args) 
   return str;
 };
 
+// Alias for convenience
+ControllerRtlsdrRadio.prototype.formatString = function(str, ...args) {
+  // Replace {0}, {1}, etc. with provided arguments
+  for (var i = 0; i < args.length; i++) {
+    str = str.replace('{' + i + '}', args[i]);
+  }
+  
+  return str;
+};
+
 ControllerRtlsdrRadio.prototype.getConfigurationFiles = function() {
   return ['config.json'];
 };

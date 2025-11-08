@@ -1,7 +1,7 @@
 {
   "name": "rtlsdr_radio",
-  "version": "0.8.2",
-  "description": "Receive FM and DAB/DAB+ radio using RTL-SDR USB tuners",
+  "version": "0.8.4",
+  "description": "Receive FM and DAB/DAB+ radio using RTL-SDR USB tuners. IMPORTANT: Restart Volumio before enabling this plugin!",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -22,8 +22,8 @@
       "bookworm"
     ],
     "has_alsa_contribution": true,
-    "details": "Receive FM and DAB/DAB+ radio using RTL-SDR USB tuners",
-    "changelog": "v0.8.2 - Reorganized strings_en.json for better maintainability and fixed duplicate key (TOAST_PURGE_ALL_FAILED)"
+    "details": "Receive FM and DAB/DAB+ radio using RTL-SDR USB tuners. IMPORTANT: Restart Volumio before enabling this plugin!",
+    "changelog": "v0.8.4 - Emphasized restart requirement in package description, install message, and README"
   },
   "engines": {
     "node": ">=20",
