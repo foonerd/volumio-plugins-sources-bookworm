@@ -311,6 +311,30 @@ ControllerRtlsdrRadio.prototype.startManagementServer = function() {
       }
     });
     
+    // API: Scan for FM stations
+    self.expressApp.post('/api/stations/scan-fm', function(req, res) {
+      try {
+        self.logger.info('[RTL-SDR Radio] FM scan triggered via web interface');
+        self.scanFm();
+        res.json({ success: true, message: 'FM scan started' });
+      } catch (e) {
+        self.logger.error('[RTL-SDR Radio] Error starting FM scan: ' + e);
+        res.status(500).json({ error: 'Failed to start FM scan' });
+      }
+    });
+    
+    // API: Scan for DAB stations
+    self.expressApp.post('/api/stations/scan-dab', function(req, res) {
+      try {
+        self.logger.info('[RTL-SDR Radio] DAB scan triggered via web interface');
+        self.scanDab();
+        res.json({ success: true, message: 'DAB scan started' });
+      } catch (e) {
+        self.logger.error('[RTL-SDR Radio] Error starting DAB scan: ' + e);
+        res.status(500).json({ error: 'Failed to start DAB scan' });
+      }
+    });
+    
     // API: Get i18n translations
     self.expressApp.get('/api/i18n/:lang', function(req, res) {
       var lang = req.params.lang || 'en';
@@ -837,7 +861,7 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
             endpoint: 'music_service/rtlsdr_radio',
             method: 'testManualFm',
             data: {
-              manual_fm_frequency: self.config.get('manual_fm_frequency', '98.8')
+              manual_fm_frequency: 'manual_fm_frequency'
             }
           }
         },
@@ -900,12 +924,22 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
             endpoint: 'music_service/rtlsdr_radio',
             method: 'testManualDab',
             data: {
-              ensemble: self.config.get('manual_dab_ensemble', '12B'),
-              service_name: self.config.get('manual_dab_service', ''),
-              gain: self.config.get('manual_dab_gain', 80)
+              ensemble: 'manual_dab_ensemble',
+              service_name: 'manual_dab_service',
+              gain: 'manual_dab_gain'
             }
           }
         },
+        visibleIf: {
+          field: 'show_diagnostics',
+          value: true
+        }
+      },
+      {
+        id: 'diagnostics_save_explanation',
+        element: 'message',
+        label: '',
+        value: self.getI18nString('DIAGNOSTICS_SAVE_EXPLANATION'),
         visibleIf: {
           field: 'show_diagnostics',
           value: true
@@ -918,7 +952,7 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
       method: 'saveDiagnosticsSettings'
     },
     saveButton: {
-      label: self.getI18nString('SAVE_SUCCESS'),
+      label: self.getI18nString('DIAGNOSTICS_SAVE_BUTTON'),
       data: ['show_diagnostics', 'manual_fm_frequency', 'manual_dab_ensemble', 'manual_dab_service', 'manual_dab_gain']
     }
   };
@@ -2573,7 +2607,8 @@ ControllerRtlsdrRadio.prototype.testManualFm = function(data) {
   var self = this;
   var defer = libQ.defer();
   
-  var frequency = data.manual_fm_frequency;
+  // Try to get value from data parameter (current form value), fall back to config (saved value)
+  var frequency = (data && data.manual_fm_frequency) || self.config.get('manual_fm_frequency', '98.8');
   
   self.logger.info('[RTL-SDR Radio] Testing manual FM: ' + frequency);
   
@@ -2613,9 +2648,10 @@ ControllerRtlsdrRadio.prototype.testManualDab = function(data) {
   var self = this;
   var defer = libQ.defer();
   
-  var ensemble = data.ensemble || '';
-  var serviceName = data.service_name || '';
-  var testGain = parseInt(data.gain) || self.config.get('dab_gain', 80);
+  // Try to get values from data parameter (current form values), fall back to config (saved values)
+  var ensemble = (data && data.ensemble) || self.config.get('manual_dab_ensemble', '12B');
+  var serviceName = (data && data.service_name) || self.config.get('manual_dab_service', '');
+  var testGain = parseInt((data && data.gain) || self.config.get('manual_dab_gain', 80));
   
   self.logger.info('[RTL-SDR Radio] Testing manual DAB: ' + ensemble + '/' + serviceName + ' (gain: ' + testGain + ')');
   

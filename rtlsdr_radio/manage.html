@@ -46,7 +46,7 @@
       max-width: 1200px;
       margin: 0 auto;
       padding: 20px;
-      padding-bottom: 100px;
+      padding-bottom: 20px;
     }
     
     .tabs {
@@ -363,7 +363,7 @@
     }
     
     .save-bar {
-      position: fixed;
+      position: sticky;
       bottom: 0;
       left: 0;
       right: 0;
@@ -375,6 +375,7 @@
       justify-content: space-between;
       align-items: center;
       z-index: 100;
+      margin-top: 20px;
     }
     
     .save-bar .info {
@@ -629,7 +630,7 @@
     @media (max-width: 768px) {
       .container {
         padding: 15px;
-        padding-bottom: 100px;
+        padding-bottom: 20px;
       }
       
       .station-item {
@@ -749,6 +750,10 @@
           <input type="text" id="fm-search" placeholder="Search FM stations...">
           <i class="fa fa-search search-icon"></i>
         </div>
+        <button class="btn btn-primary" id="rescan-fm-btn">
+          <i class="fa fa-refresh"></i>
+          <span id="btn-rescan-fm">Rescan FM</span>
+        </button>
         <button class="btn btn-danger" id="clear-fm-btn">
           <i class="fa fa-trash"></i>
           <span id="btn-clear-fm">Clear All FM</span>
@@ -779,6 +784,10 @@
           <input type="text" id="dab-search" placeholder="Search DAB stations...">
           <i class="fa fa-search search-icon"></i>
         </div>
+        <button class="btn btn-primary" id="rescan-dab-btn">
+          <i class="fa fa-refresh"></i>
+          <span id="btn-rescan-dab">Rescan DAB</span>
+        </button>
         <button class="btn btn-danger" id="clear-dab-btn">
           <i class="fa fa-trash"></i>
           <span id="btn-clear-dab">Clear All DAB</span>
@@ -901,7 +910,9 @@
       document.getElementById('stat-favorites-label-dab').textContent = t('STAT_FAVORITES');
       document.getElementById('stat-hidden-label-dab').textContent = t('STAT_HIDDEN');
       document.getElementById('btn-clear-fm').textContent = t('BTN_CLEAR_ALL_FM');
+      document.getElementById('btn-rescan-fm').textContent = t('BTN_RESCAN_FM');
       document.getElementById('btn-clear-dab').textContent = t('BTN_CLEAR_ALL_DAB');
+      document.getElementById('btn-rescan-dab').textContent = t('BTN_RESCAN_DAB');
       document.getElementById('btn-empty-recycle').textContent = t('BTN_EMPTY_RECYCLE');
       document.getElementById('btn-save-text').textContent = t('BTN_SAVE');
       document.getElementById('btn-cancel-text').textContent = t('BTN_CANCEL');
@@ -1351,6 +1362,50 @@
         
       } catch (error) {
         showToast('Failed to clear: ' + error.message, 'error');
+      }
+    });
+    
+    // Rescan FM stations
+    document.getElementById('rescan-fm-btn').addEventListener('click', async () => {
+      if (!confirm(t('CONFIRM_RESCAN_FM'))) return;
+      
+      try {
+        const response = await fetch('/api/stations/scan-fm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) throw new Error('Rescan failed');
+        
+        showToast(t('TOAST_FM_SCANNING'));
+        
+        // Reload stations after scan completes (give it time)
+        setTimeout(() => loadStations(), 12000);
+        
+      } catch (error) {
+        showToast('Failed to start rescan: ' + error.message, 'error');
+      }
+    });
+    
+    // Rescan DAB stations
+    document.getElementById('rescan-dab-btn').addEventListener('click', async () => {
+      if (!confirm(t('CONFIRM_RESCAN_DAB'))) return;
+      
+      try {
+        const response = await fetch('/api/stations/scan-dab', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) throw new Error('Rescan failed');
+        
+        showToast(t('TOAST_DAB_SCANNING'));
+        
+        // Reload stations after scan completes (give it more time)
+        setTimeout(() => loadStations(), 65000);
+        
+      } catch (error) {
+        showToast('Failed to start rescan: ' + error.message, 'error');
       }
     });
     

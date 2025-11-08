@@ -1,6 +1,6 @@
 {
   "name": "rtlsdr_radio",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "description": "Receive FM and DAB/DAB+ radio using RTL-SDR USB tuners",
   "main": "index.js",
   "scripts": {
@@ -23,7 +23,7 @@
     ],
     "has_alsa_contribution": true,
     "details": "Receive FM and DAB/DAB+ radio using RTL-SDR USB tuners",
-    "changelog": "v0.7.2 - Made menu item translatable: 'RTL-SDR Manager' -> 'FM/DAB Station Manager'"
+    "changelog": "v0.8.0 - Added Rescan FM and Rescan DAB buttons to web manager interface"
   },
   "engines": {
     "node": ">=20",
