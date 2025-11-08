@@ -2651,9 +2651,9 @@ ControllerRtlsdrRadio.prototype.testManualDab = function(data) {
   var defer = libQ.defer();
   
   // Try to get values from data parameter (current form values), fall back to config (saved values)
-  var ensemble = (data && data.ensemble) || self.config.get('manual_dab_ensemble', '12B');
-  var serviceName = (data && data.service_name) || self.config.get('manual_dab_service', '');
-  var testGain = parseInt((data && data.gain) || self.config.get('manual_dab_gain', 80));
+  var ensemble = (data && data.manual_dab_ensemble) || self.config.get('manual_dab_ensemble', '12B');
+  var serviceName = (data && data.manual_dab_service) || self.config.get('manual_dab_service', '');
+  var testGain = parseInt((data && data.manual_dab_gain) || self.config.get('manual_dab_gain', 80));
   
   self.logger.info('[RTL-SDR Radio] Testing manual DAB: ' + ensemble + '/' + serviceName + ' (gain: ' + testGain + ')');
   

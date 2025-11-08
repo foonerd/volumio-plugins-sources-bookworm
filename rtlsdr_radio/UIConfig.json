@@ -328,10 +328,7 @@
             "message": "callMethod",
             "data": {
               "endpoint": "music_service/rtlsdr_radio",
-              "method": "testManualFm",
-              "data": {
-                "manual_fm_frequency": "98.8"
-              }
+              "method": "testManualFm"
             }
           },
           "visibleIf": {
@@ -391,14 +388,19 @@
             "message": "callMethod",
             "data": {
               "endpoint": "music_service/rtlsdr_radio",
-              "method": "testManualDab",
-              "data": {
-                "ensemble": "12B",
-                "service_name": "",
-                "gain": 80
-              }
+              "method": "testManualDab"
             }
           },
+          "visibleIf": {
+            "field": "show_diagnostics",
+            "value": true
+          }
+        },
+        {
+          "id": "diagnostics_save_explanation",
+          "element": "message",
+          "label": "",
+          "value": "Optional: Save test values for next time. Test buttons work without saving.",
           "visibleIf": {
             "field": "show_diagnostics",
             "value": true
