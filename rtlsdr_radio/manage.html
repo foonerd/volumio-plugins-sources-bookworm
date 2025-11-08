@@ -280,18 +280,18 @@
       flex-wrap: wrap;
     }
     
-    .btn-save-row {
+    .btn.btn-save-row {
       display: none;
       background: #27ae60;
       color: #fff;
       animation: fadeIn 0.2s;
     }
     
-    .btn-save-row:hover {
+    .btn.btn-save-row:hover {
       background: #229954;
     }
     
-    .station-item.dirty .btn-save-row {
+    .station-item.dirty .btn.btn-save-row {
       display: inline-flex;
     }
     
@@ -989,6 +989,10 @@
         fmStations = data.fm || [];
         dabStations = data.dab || [];
         
+        // Clean up any dirty flags that might have been saved to backend
+        fmStations.forEach(s => delete s.dirty);
+        dabStations.forEach(s => delete s.dirty);
+        
         renderStations('fm', fmStations);
         renderStations('dab', dabStations);
         renderRecycleBin();
@@ -1050,7 +1054,7 @@
         }
         
         return `
-          <div class="station-item" data-type="${type}" data-index="${realIdx}">
+          <div class="station-item${station.dirty ? ' dirty' : ''}" data-type="${type}" data-index="${realIdx}">
             ${icon}
             <div class="station-info">
               <div class="station-name">
@@ -1437,17 +1441,29 @@
         document.getElementById('save-btn-inline').disabled = true;
         updateSaveStatus(t('STATUS_SAVING'), false);
         
+        // Clear all dirty flags before saving
+        const cleanFm = fmStations.map(s => {
+          const clean = {...s};
+          delete clean.dirty;
+          return clean;
+        });
+        const cleanDab = dabStations.map(s => {
+          const clean = {...s};
+          delete clean.dirty;
+          return clean;
+        });
+        
         const response = await fetch('/api/stations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fm: fmStations, dab: dabStations })
+          body: JSON.stringify({ fm: cleanFm, dab: cleanDab })
         });
         
         if (!response.ok) throw new Error('Save failed');
         
-        // Clear all dirty flags
-        fmStations.forEach(s => s.dirty = false);
-        dabStations.forEach(s => s.dirty = false);
+        // Clean in-memory versions too
+        fmStations.forEach(s => delete s.dirty);
+        dabStations.forEach(s => delete s.dirty);
         
         // Remove dirty class from all rows
         document.querySelectorAll('.station-item.dirty').forEach(el => {
