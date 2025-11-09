@@ -831,9 +831,8 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
       },
       {
         id: 'diagnostics_purpose',
-        element: 'message',
-        label: '',
-        value: self.getI18nString('DIAGNOSTICS_PURPOSE'),
+        element: 'section',
+        description: self.getI18nString('DIAGNOSTICS_PURPOSE'),
         visibleIf: {
           field: 'show_diagnostics',
           value: true
@@ -939,9 +938,8 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
       },
       {
         id: 'diagnostics_save_explanation',
-        element: 'message',
-        label: '',
-        value: self.getI18nString('DIAGNOSTICS_SAVE_EXPLANATION'),
+        element: 'section',
+        description: self.getI18nString('DIAGNOSTICS_SAVE_EXPLANATION'),
         visibleIf: {
           field: 'show_diagnostics',
           value: true

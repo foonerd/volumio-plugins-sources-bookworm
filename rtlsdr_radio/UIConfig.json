@@ -290,9 +290,8 @@
         },
         {
           "id": "diagnostics_purpose",
-          "element": "message",
-          "label": "",
-          "value": "Use these tools to test FM and DAB reception with different gain settings for your USB dongle",
+          "element": "section",
+          "description": "Use these tools to test FM and DAB reception with different gain settings for your USB dongle",
           "visibleIf": {
             "field": "show_diagnostics",
             "value": true
@@ -398,9 +397,8 @@
         },
         {
           "id": "diagnostics_save_explanation",
-          "element": "message",
-          "label": "",
-          "value": "Optional: Save test values for next time. Test buttons work without saving.",
+          "element": "section",
+          "description": "Optional: Save test values for next time. Test buttons work without saving.",
           "visibleIf": {
             "field": "show_diagnostics",
             "value": true
