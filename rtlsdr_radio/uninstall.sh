@@ -25,23 +25,6 @@ sed -i '/snd-aloop/d' /etc/modules
 # Unload ALSA loopback module
 rmmod snd-aloop 2>/dev/null
 
-# Restore Volumio backend original file
-echo ""
-echo "=========================================="
-echo "Restoring Volumio Backend"
-echo "=========================================="
-
-BACKEND_FILE="/volumio/app/index.js"
-
-if [ -f "${BACKEND_FILE}.original" ]; then
-  mv "${BACKEND_FILE}.original" "$BACKEND_FILE"
-  echo "✓ Restored: /volumio/app/index.js"
-  echo ""
-  echo "Backend restored to original"
-else
-  echo "No backup found (backend not modified)"
-fi
-
 echo ""
 echo "FM/DAB Radio plugin uninstalled"
 echo ""

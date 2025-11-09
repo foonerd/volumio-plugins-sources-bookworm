@@ -5,11 +5,11 @@
   },
   "fm_enabled": {
     "type": "boolean",
-    "value": true
+    "value": false
   },
   "dab_enabled": {
     "type": "boolean",
-    "value": true
+    "value": false
   },
   "fm_gain": {
     "type": "number",

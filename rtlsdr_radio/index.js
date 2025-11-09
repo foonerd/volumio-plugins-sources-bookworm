@@ -66,9 +66,10 @@ ControllerRtlsdrRadio.prototype.onStart = function() {
     })
     .then(function() {
       // Setup manager integration options if enabled (Option 3)
-      if (self.config.get('manager_menu_item_enabled', false)) {
-        self.pushManagerMenuItem();
-      }
+      // DISABLED: Awaiting Volumio core support for dynamic menu items
+      // if (self.config.get('manager_menu_item_enabled', false)) {
+      //   self.pushManagerMenuItem();
+      // }
       
       self.addToBrowseSources();
       self.logger.info('[RTL-SDR Radio] Plugin started successfully');
@@ -117,9 +118,10 @@ ControllerRtlsdrRadio.prototype.onStop = function() {
   self.commandRouter.volumioRemoveToBrowseSources('FM/DAB Radio');
   
   // Cleanup manager integration (Option 3)
-  if (self.config.get('manager_menu_item_enabled', false)) {
-    self.removeManagerMenuItem();
-  }
+  // DISABLED: Awaiting Volumio core support for dynamic menu items
+  // if (self.config.get('manager_menu_item_enabled', false)) {
+  //   self.removeManagerMenuItem();
+  // }
   
   // Stop management server
   if (self.expressServer) {
@@ -414,7 +416,10 @@ ControllerRtlsdrRadio.prototype.getManagementUrl = function() {
 };
 
 // Manager Integration Methods (v0.2.5 Testing)
+// DISABLED: Awaiting Volumio core support for dynamic menu items
+// These methods will be re-enabled if/when Volumio adds volumioAddToMenuItems API
 
+/*
 ControllerRtlsdrRadio.prototype.pushManagerMenuItem = function() {
   var self = this;
   
@@ -446,6 +451,7 @@ ControllerRtlsdrRadio.prototype.removeManagerMenuItem = function() {
     self.logger.error('[RTL-SDR Radio] Error removing manager menu item: ' + e);
   }
 };
+*/
 
 ControllerRtlsdrRadio.prototype.onVolumioStop = function() {
   var self = this;
@@ -554,7 +560,125 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
     sections: []
   };
   
-  // SECTION 1: FM RADIO
+  // SECTION 1: WEB STATION MANAGEMENT
+  // ==================================
+  var webManagementSection = {
+    id: 'web_management',
+    element: 'section',
+    label: self.getI18nString('SECTION_WEB_MANAGEMENT'),
+    icon: 'fa-edit',
+    content: [
+      {
+        id: 'show_web_management',
+        element: 'switch',
+        label: self.getI18nString('SHOW_WEB_MANAGEMENT'),
+        value: self.config.get('show_web_management', true),
+        doc: self.getI18nString('SHOW_WEB_MANAGEMENT_DOC')
+      },
+      {
+        id: 'open_current_button',
+        element: 'button',
+        label: self.getI18nString('OPEN_CURRENT_WINDOW'),
+        onClick: {
+          type: 'openUrl',
+          url: '/iframe-page/' + self.getManagementUrl().replace(/\//g, '~2F')
+        },
+        doc: self.getI18nString('OPEN_CURRENT_WINDOW_DOC'),
+        visibleIf: {
+          field: 'show_web_management',
+          value: true
+        }
+      },
+      {
+        id: 'open_tab_button',
+        element: 'button',
+        label: self.getI18nString('OPEN_NEW_TAB'),
+        onClick: {
+          type: 'openUrl',
+          url: self.getManagementUrl()
+        },
+        doc: self.getI18nString('OPEN_NEW_TAB_DOC'),
+        visibleIf: {
+          field: 'show_web_management',
+          value: true
+        }
+      }
+    ],
+    onSave: {
+      type: 'controller',
+      endpoint: 'music_service/rtlsdr_radio',
+      method: 'saveWebManagementToggle'
+    },
+    saveButton: {
+      label: self.getI18nString('SAVE_SUCCESS'),
+      data: ['show_web_management']
+    }
+  };
+  uiconf.sections.push(webManagementSection);
+  
+  // SECTION 2: WEB STATION MANAGEMENT CONFIGURATION
+  // ================================================
+  var managementConfigSection = {
+    id: 'management_config',
+    element: 'section',
+    label: self.getI18nString('SECTION_WEB_MANAGEMENT_CONFIG'),
+    icon: 'fa-cog',
+    content: [
+      {
+        id: 'show_management_config',
+        element: 'switch',
+        label: self.getI18nString('SHOW_MANAGEMENT_CONFIG'),
+        value: self.config.get('show_management_config', false),
+        doc: self.getI18nString('SHOW_MANAGEMENT_CONFIG_DOC')
+      },
+      {
+        id: 'hostname_override',
+        element: 'input',
+        label: self.getI18nString('HOSTNAME_OVERRIDE'),
+        value: self.config.get('hostname_override', ''),
+        doc: self.getI18nString('HOSTNAME_OVERRIDE_DOC'),
+        visibleIf: {
+          field: 'show_management_config',
+          value: true
+        }
+      }
+      /* DISABLED: Awaiting Volumio core support for dynamic menu items
+      ,{
+        id: 'management_url',
+        element: 'message',
+        label: self.getI18nString('MANAGER_URL_LABEL'),
+        value: self.getManagementUrl(),
+        visibleIf: {
+          field: 'show_management_config',
+          value: true
+        }
+      },
+      {
+        id: 'enable_menu_item',
+        element: 'switch',
+        label: self.getI18nString('ENABLE_MENU_ITEM'),
+        value: self.config.get('manager_menu_item_enabled', false),
+        doc: self.getI18nString('ENABLE_MENU_ITEM_DOC'),
+        visibleIf: {
+          field: 'show_management_config',
+          value: true
+        }
+      }
+      */
+    ],
+    onSave: {
+      type: 'controller',
+      endpoint: 'music_service/rtlsdr_radio',
+      method: 'saveWebManagerSettings'
+    },
+    saveButton: {
+      label: self.getI18nString('SAVE_MANAGEMENT_CONFIG'),
+      data: ['show_management_config', 'hostname_override' /*, 'enable_menu_item' */]
+    }
+  };
+  uiconf.sections.push(managementConfigSection);
+  
+  // SECTION 3: FM RADIO
   // ====================
   var fmSection = {
     id: 'fm_radio',
@@ -575,7 +699,7 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
         id: 'fm_enabled',
         element: 'switch',
         label: self.getI18nString('ENABLE_FM'),
-        value: self.config.get('fm_enabled', true),
+        value: self.config.get('fm_enabled', false),
         doc: self.getI18nString('ENABLE_FM_DOC')
       },
       {
@@ -644,7 +768,7 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
   };
   uiconf.sections.push(fmSection);
   
-  // SECTION 2: DAB/DAB+ RADIO
+  // SECTION 4: DAB/DAB+ RADIO
   // ==========================
   var dabSection = {
     id: 'dab_radio',
@@ -665,7 +789,7 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
         id: 'dab_enabled',
         element: 'switch',
         label: self.getI18nString('ENABLE_DAB'),
-        value: self.config.get('dab_enabled', true),
+        value: self.config.get('dab_enabled', false),
         doc: self.getI18nString('ENABLE_DAB_DOC')
       },
       {
@@ -697,122 +821,6 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
     ]
   };
   uiconf.sections.push(dabSection);
-  
-  // SECTION 3: WEB STATION MANAGEMENT
-  // ==================================
-  var webManagementSection = {
-    id: 'web_management',
-    element: 'section',
-    label: self.getI18nString('SECTION_WEB_MANAGEMENT'),
-    icon: 'fa-edit',
-    content: [
-      {
-        id: 'show_web_management',
-        element: 'switch',
-        label: self.getI18nString('SHOW_WEB_MANAGEMENT'),
-        value: self.config.get('show_web_management', false),
-        doc: self.getI18nString('SHOW_WEB_MANAGEMENT_DOC')
-      },
-      {
-        id: 'open_current_button',
-        element: 'button',
-        label: self.getI18nString('OPEN_CURRENT_WINDOW'),
-        onClick: {
-          type: 'openUrl',
-          url: '/iframe-page/' + self.getManagementUrl().replace(/\//g, '~2F')
-        },
-        doc: self.getI18nString('OPEN_CURRENT_WINDOW_DOC'),
-        visibleIf: {
-          field: 'show_web_management',
-          value: true
-        }
-      },
-      {
-        id: 'open_tab_button',
-        element: 'button',
-        label: self.getI18nString('OPEN_NEW_TAB'),
-        onClick: {
-          type: 'openUrl',
-          url: self.getManagementUrl()
-        },
-        doc: self.getI18nString('OPEN_NEW_TAB_DOC'),
-        visibleIf: {
-          field: 'show_web_management',
-          value: true
-        }
-      }
-    ],
-    onSave: {
-      type: 'controller',
-      endpoint: 'music_service/rtlsdr_radio',
-      method: 'saveWebManagementToggle'
-    },
-    saveButton: {
-      label: self.getI18nString('SAVE_SUCCESS'),
-      data: ['show_web_management']
-    }
-  };
-  uiconf.sections.push(webManagementSection);
-  
-  // SECTION 4: WEB STATION MANAGEMENT CONFIGURATION
-  // ================================================
-  var managementConfigSection = {
-    id: 'management_config',
-    element: 'section',
-    label: self.getI18nString('SECTION_WEB_MANAGEMENT_CONFIG'),
-    icon: 'fa-cog',
-    content: [
-      {
-        id: 'show_management_config',
-        element: 'switch',
-        label: self.getI18nString('SHOW_MANAGEMENT_CONFIG'),
-        value: self.config.get('show_management_config', false),
-        doc: self.getI18nString('SHOW_MANAGEMENT_CONFIG_DOC')
-      },
-      {
-        id: 'hostname_override',
-        element: 'input',
-        label: self.getI18nString('HOSTNAME_OVERRIDE'),
-        value: self.config.get('hostname_override', ''),
-        doc: self.getI18nString('HOSTNAME_OVERRIDE_DOC'),
-        visibleIf: {
-          field: 'show_management_config',
-          value: true
-        }
-      },
-      {
-        id: 'management_url',
-        element: 'message',
-        label: self.getI18nString('MANAGER_URL_LABEL'),
-        value: self.getManagementUrl(),
-        visibleIf: {
-          field: 'show_management_config',
-          value: true
-        }
-      },
-      {
-        id: 'enable_menu_item',
-        element: 'switch',
-        label: self.getI18nString('ENABLE_MENU_ITEM'),
-        value: self.config.get('manager_menu_item_enabled', false),
-        doc: self.getI18nString('ENABLE_MENU_ITEM_DOC'),
-        visibleIf: {
-          field: 'show_management_config',
-          value: true
-        }
-      }
-    ],
-    onSave: {
-      type: 'controller',
-      endpoint: 'music_service/rtlsdr_radio',
-      method: 'saveWebManagerSettings'
-    },
-    saveButton: {
-      label: self.getI18nString('SAVE_MANAGEMENT_CONFIG'),
-      data: ['show_management_config', 'hostname_override', 'enable_menu_item']
-    }
-  };
-  uiconf.sections.push(managementConfigSection);
   
   // SECTION 5: DIAGNOSTICS
   // =======================
@@ -1010,6 +1018,8 @@ ControllerRtlsdrRadio.prototype.saveWebManagerSettings = function(data) {
     }
     
     // Save menu item enable state (Option 3)
+    // DISABLED: Awaiting Volumio core support for dynamic menu items
+    /*
     if (data.enable_menu_item !== undefined) {
       var oldValue = self.config.get('manager_menu_item_enabled', false);
       var newValue = data.enable_menu_item;
@@ -1025,6 +1035,7 @@ ControllerRtlsdrRadio.prototype.saveWebManagerSettings = function(data) {
         }
       }
     }
+    */
     
     if (needsRestart) {
       self.commandRouter.pushToastMessage('success', 'FM/DAB Radio', 

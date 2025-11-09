@@ -159,51 +159,6 @@ fi
 # Create stations database directory
 mkdir -p /data/plugins/music_service/rtlsdr_radio
 
-# Install backend modification for menu item support (Option 3)
-echo ""
-echo "=========================================="
-echo "Installing Backend Modification"
-echo "=========================================="
-echo "Adds dynamic menu item support for Option 3"
-echo ""
-
-BACKEND_FILE="/volumio/app/index.js"
-BACKEND_MODIFIED="$PLUGIN_DIR/assets/volumio_backend/index.js"
-
-if [ -f "$BACKEND_MODIFIED" ] && [ -f "$BACKEND_FILE" ]; then
-  echo "Creating backup (OTA-safe with timestamp preservation)..."
-  
-  # Create backup if not already exists
-  if [ ! -f "${BACKEND_FILE}.original" ]; then
-    cp -p "$BACKEND_FILE" "${BACKEND_FILE}.original"
-    echo "✓ Backed up: /volumio/app/index.js"
-  else
-    echo "  Backup already exists: /volumio/app/index.js.original"
-  fi
-  
-  echo ""
-  echo "Installing modified backend..."
-  
-  # Install modified backend
-  cp "$BACKEND_MODIFIED" "$BACKEND_FILE"
-  
-  # CRITICAL: Restore original timestamp for OTA safety
-  if [ -f "${BACKEND_FILE}.original" ]; then
-    touch -r "${BACKEND_FILE}.original" "$BACKEND_FILE"
-    echo "✓ Installed: /volumio/app/index.js"
-    echo "✓ Timestamp preserved (OTA-safe)"
-  fi
-  
-  echo ""
-  echo "Backend modification installed"
-  echo "This enables Option 3: Settings Menu Item"
-  echo ""
-else
-  echo "WARNING: Backend modification not found"
-  echo "Only Options 1 and 2 will work"
-  echo ""
-fi
-
 # Get hostname for web interface URL
 HOSTNAME=$(hostname)
 if [ -z "$HOSTNAME" ]; then
@@ -214,7 +169,7 @@ echo ""
 echo "=========================================="
 echo "FM/DAB Radio plugin installation complete"
 echo "=========================================="
-echo "Version: 0.9.7"
+echo "Version: 0.9.8"
 echo "Architecture: $ARCH"
 echo "Binaries: /usr/local/bin/dab-{rtlsdr,scanner}-3"
 echo ""
@@ -233,11 +188,11 @@ echo ""
 echo "Web Station Management Interface"
 echo "URL: http://$HOSTNAME.local:$WEB_PORT"
 echo ""
-echo "Three ways to access station management:"
-echo "1. Open in New Tab - always works"
-echo "2. Open in Current Window - full-screen iframe"
-echo "3. Settings Menu Item - enable in plugin settings"
+echo "Access station management via plugin settings:"
+echo "Settings > Plugins > Installed > FM/DAB Radio"
 echo ""
-echo "Configure in: Settings > FM/DAB Radio"
+echo "Two ways to open the station manager:"
+echo "1. Open in New Tab - opens in new browser tab"
+echo "2. Open in Current Window - opens within Volumio interface"
 echo ""
 echo "plugininstallend"

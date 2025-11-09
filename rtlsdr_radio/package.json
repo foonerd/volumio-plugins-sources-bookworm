@@ -1,6 +1,6 @@
 {
   "name": "rtlsdr_radio",
-  "version": "0.9.7",
+  "version": "0.9.8",
   "description": "Receive FM and DAB/DAB+ radio using RTL-SDR USB tuners. IMPORTANT: Restart Volumio before enabling this plugin.",
   "main": "index.js",
   "scripts": {
@@ -21,9 +21,11 @@
     "os": [
       "bookworm"
     ],
+    "is_my_music_plugin": true,
+    "has_configuration": true,
     "has_alsa_contribution": true,
     "details": "Receive FM and DAB/DAB+ radio using RTL-SDR USB tuners. IMPORTANT: Restart Volumio before enabling this plugin.",
-    "changelog": "v0.9.7 - Clarified test button behavior: Added clear warnings that test buttons require saved values. Updated diagnostics messages to avoid confusion about save requirements."
+    "changelog": "v0.9.8 - UI reorganization: Station manager now appears first in settings (open by default) for immediate access. FM/DAB config sections collapsed by default for cleaner presentation. Clarified toggle labels (Show vs Enable). Settings menu integration disabled pending Volumio core API support."
   },
   "engines": {
     "node": ">=20",

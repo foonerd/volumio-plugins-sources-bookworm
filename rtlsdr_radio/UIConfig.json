@@ -4,6 +4,98 @@
   },
   "sections": [
     {
+      "id": "web_management",
+      "element": "section",
+      "label": "Radio Station Management",
+      "icon": "fa-edit",
+      "onSave": {
+        "type": "controller",
+        "endpoint": "music_service/rtlsdr_radio",
+        "method": "saveWebManagementToggle"
+      },
+      "saveButton": {
+        "label": "Save",
+        "data": [
+          "show_web_management"
+        ]
+      },
+      "content": [
+        {
+          "id": "show_web_management",
+          "element": "switch",
+          "label": "Show Station Management",
+          "value": true,
+          "doc": "Toggle to show station manager access options"
+        },
+        {
+          "id": "open_current_button",
+          "element": "button",
+          "label": "Open in Current Window",
+          "onClick": {
+            "type": "openUrl",
+            "url": "/iframe-page/http:~2F~2Flocalhost:3456"
+          },
+          "doc": "Opens station manager in iframe within Volumio",
+          "visibleIf": {
+            "field": "show_web_management",
+            "value": true
+          }
+        },
+        {
+          "id": "open_tab_button",
+          "element": "button",
+          "label": "Open in New Tab",
+          "onClick": {
+            "type": "openUrl",
+            "url": "http://localhost:3456"
+          },
+          "doc": "Opens station manager in new browser tab",
+          "visibleIf": {
+            "field": "show_web_management",
+            "value": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "management_config",
+      "element": "section",
+      "label": "Radio Station Management Configuration",
+      "icon": "fa-cog",
+      "onSave": {
+        "type": "controller",
+        "endpoint": "music_service/rtlsdr_radio",
+        "method": "saveWebManagerSettings"
+      },
+      "saveButton": {
+        "label": "Save Configuration",
+        "data": [
+          "show_management_config",
+          "hostname_override"
+        ]
+      },
+      "content": [
+        {
+          "id": "show_management_config",
+          "element": "switch",
+          "label": "Show Configuration",
+          "value": false,
+          "doc": "Toggle to show advanced manager configuration"
+        },
+        {
+          "id": "hostname_override",
+          "element": "input",
+          "label": "Hostname/IP Override (Optional)",
+          "value": "",
+          "doc": "Leave blank to use MDNS hostname. Enter your IP address (e.g. 192.168.30.208) if MDNS is unavailable",
+          "visibleIf": {
+            "field": "show_management_config",
+            "value": true
+          }
+        }
+      ]
+    },
+    {
       "id": "fm_radio",
       "element": "section",
       "label": "FM Radio",
@@ -25,9 +117,9 @@
         {
           "id": "fm_enabled",
           "element": "switch",
-          "label": "Enable FM Radio",
-          "value": true,
-          "doc": "Enable FM radio reception"
+          "label": "Show FM Radio Configuration",
+          "value": false,
+          "doc": "Toggle to show FM radio settings"
         },
         {
           "id": "fm_gain",
@@ -114,9 +206,9 @@
         {
           "id": "dab_enabled",
           "element": "switch",
-          "label": "Enable DAB/DAB+ Radio",
-          "value": true,
-          "doc": "Enable DAB and DAB+ radio reception"
+          "label": "Show DAB/DAB+ Radio Configuration",
+          "value": false,
+          "doc": "Toggle to show DAB and DAB+ radio settings"
         },
         {
           "id": "dab_gain",
@@ -141,120 +233,6 @@
           "doc": "Scan for available DAB/DAB+ stations (may take 2-3 minutes)",
           "visibleIf": {
             "field": "dab_enabled",
-            "value": true
-          }
-        }
-      ]
-    },
-    {
-      "id": "web_management",
-      "element": "section",
-      "label": "Web Station Management",
-      "icon": "fa-edit",
-      "onSave": {
-        "type": "controller",
-        "endpoint": "music_service/rtlsdr_radio",
-        "method": "saveWebManagementToggle"
-      },
-      "saveButton": {
-        "label": "Save",
-        "data": [
-          "show_web_management"
-        ]
-      },
-      "content": [
-        {
-          "id": "show_web_management",
-          "element": "switch",
-          "label": "Show Web Management",
-          "value": false,
-          "doc": "Toggle to show web manager access options"
-        },
-        {
-          "id": "open_current_button",
-          "element": "button",
-          "label": "Open in Current Window",
-          "onClick": {
-            "type": "openUrl",
-            "url": "/iframe-page/http:~2F~2Flocalhost:3456"
-          },
-          "doc": "Opens station manager in iframe within Volumio",
-          "visibleIf": {
-            "field": "show_web_management",
-            "value": true
-          }
-        },
-        {
-          "id": "open_tab_button",
-          "element": "button",
-          "label": "Open in New Tab",
-          "onClick": {
-            "type": "openUrl",
-            "url": "http://localhost:3456"
-          },
-          "doc": "Opens station manager in new browser tab",
-          "visibleIf": {
-            "field": "show_web_management",
-            "value": true
-          }
-        }
-      ]
-    },
-    {
-      "id": "management_config",
-      "element": "section",
-      "label": "Web Station Management Configuration",
-      "icon": "fa-cog",
-      "onSave": {
-        "type": "controller",
-        "endpoint": "music_service/rtlsdr_radio",
-        "method": "saveWebManagerSettings"
-      },
-      "saveButton": {
-        "label": "Save Configuration",
-        "data": [
-          "show_management_config",
-          "hostname_override",
-          "enable_menu_item"
-        ]
-      },
-      "content": [
-        {
-          "id": "show_management_config",
-          "element": "switch",
-          "label": "Show Configuration",
-          "value": false,
-          "doc": "Toggle to show advanced manager configuration"
-        },
-        {
-          "id": "hostname_override",
-          "element": "input",
-          "label": "Hostname/IP Override (Optional)",
-          "value": "",
-          "doc": "Leave blank to use MDNS hostname. Enter your IP address (e.g. 192.168.30.208) if MDNS is unavailable",
-          "visibleIf": {
-            "field": "show_management_config",
-            "value": true
-          }
-        },
-        {
-          "id": "management_url",
-          "element": "message",
-          "label": "Manager URL:",
-          "value": "http://localhost:3456",
-          "visibleIf": {
-            "field": "show_management_config",
-            "value": true
-          }
-        },
-        {
-          "id": "enable_menu_item",
-          "element": "switch",
-          "label": "Enable Settings Menu Item",
-          "value": false,
-          "doc": "Adds RTL-SDR Manager to Settings menu (requires restart)",
-          "visibleIf": {
-            "field": "show_management_config",
             "value": true
           }
         }

@@ -33,7 +33,7 @@ Receive FM and DAB/DAB+ radio using RTL-SDR USB tuners.
 - Per-row save buttons for quick edits
 - Bulk operations (clear all, rescan)
 
-### Diagnostics Tools (v0.9.7)
+### Diagnostics Tools
 The plugin includes diagnostic tools to test your USB dongle before scanning:
 
 - **Purpose**: Verify your dongle can receive specific frequencies
@@ -61,9 +61,10 @@ DAB stations use technical identifiers that may differ from display names:
 - Test Gain: 20 (NESDR Smart)
 
 ### Web Interface Access
-The station management interface is accessible at:
-- `http://<volumio-ip>:3456`
-- Or via Volumio plugin settings (three access methods available)
+The station management interface is accessible through the plugin settings:
+- Navigate to: Settings > Plugins > Installed Plugins > FM/DAB Radio
+- Click "Open in New Tab" or "Open in Current Window"
+- Direct access: `http://<volumio-ip>:3456`
 
 ## Installation
 
@@ -78,6 +79,14 @@ The station management interface is accessible at:
 
 ## Usage
 
+### Plugin Settings Organization (v0.9.8+)
+The plugin settings are organized for quick access:
+1. **Radio Station Management** - First section, open by default with immediate access to station manager
+2. **Radio Station Management Configuration** - Advanced settings (hostname override)
+3. **FM Radio** - FM configuration (expand to see settings)
+4. **DAB/DAB+ Radio** - DAB configuration (expand to see settings)
+5. **Diagnostics** - Testing tools for your USB dongle
+
 ### Playing Stations
 1. Navigate to "Music Library" in Volumio
 2. Select "FM/DAB Radio" source
@@ -85,8 +94,8 @@ The station management interface is accessible at:
 4. Click to play
 
 ### Managing Stations
-1. Open plugin settings in Volumio
-2. Click "Open Station Manager" (or access directly at port 3456)
+1. Open plugin settings: Settings > Plugins > Installed Plugins > FM/DAB Radio
+2. Click "Open in New Tab" or "Open in Current Window" in the Station Management section
 3. Use the web interface to:
    - Mark favorites (star icon)
    - Hide stations (eye icon)
@@ -95,9 +104,10 @@ The station management interface is accessible at:
    - Search for stations
    - Rescan for new stations
 
-### Testing Your Dongle (v0.9.7)
+### Testing Your Dongle
 1. Open plugin settings
-2. Enable "Show Diagnostics"
+2. Expand "Diagnostics" section (if collapsed)
+3. Enable "Show Diagnostics"
 3. Enter test values (defaults provided for UK/London)
 4. Click "Save Test Settings"
 5. Click test button (FM or DAB)
@@ -137,9 +147,9 @@ Target repository: https://github.com/volumio/volumio-plugins-sources-bookworm
 - Ensure good signal reception (location dependent)
 - Use diagnostics tools to test reception first
 
-### Test buttons require save (v0.9.7)
+### Test buttons require save
 - Test buttons read saved configuration values, not current inputs
-- Always click "Save Test Settings" before testing
+- Always click "Save" before testing
 - This ensures consistent test conditions
 
 ### Web interface not accessible
@@ -157,7 +167,15 @@ Just a Nerd
 
 ## Version History
 
-### v0.9.7 (Current)
+### v0.9.8 (Current)
+- UI reorganization: Station manager now appears first in plugin settings
+- Station manager section open by default for immediate access
+- FM/DAB configuration sections collapsed by default for cleaner presentation
+- Clearer toggle labels: "Show" instead of "Enable"
+- Simplified installation (no Volumio core file modification)
+- Two access methods for station manager (via plugin settings)
+
+### v0.9.7
 - Clarified test button requirements with clear warning messages
 - Improved default values (UK/London optimized)
 - Enhanced documentation for technical service names vs display names
