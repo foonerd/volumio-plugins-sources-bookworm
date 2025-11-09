@@ -291,7 +291,7 @@
         {
           "id": "diagnostics_purpose",
           "element": "section",
-          "description": "Use these tools to test FM and DAB reception with different gain settings for your USB dongle",
+          "description": "These tools test if your USB dongle can receive specific frequencies. Use this when: stations won't play, signal is weak, or testing a new dongle. Enter a known strong station, save settings, click test - you should hear audio. If no audio or distorted, adjust gain: lower if crackling (NESDR Smart: try 20), higher if silent (basic RTL-SDR: try 80). Test confirms your dongle works before scanning for all stations.",
           "visibleIf": {
             "field": "show_diagnostics",
             "value": true
@@ -311,8 +311,17 @@
           "id": "manual_fm_frequency",
           "element": "input",
           "label": "FM Frequency (MHz)",
-          "value": "98.8",
-          "doc": "Enter FM frequency (88.0 - 108.0 MHz) for testing",
+          "value": "94.9",
+          "doc": "FM frequency in MHz (88.0-108.0). Example: 94.9 for BBC Radio London, 95.8 for Capital FM. Use a strong local station for testing.",
+          "visibleIf": {
+            "field": "show_diagnostics",
+            "value": true
+          }
+        },
+        {
+          "id": "test_fm_save_required",
+          "element": "section",
+          "description": "Required: Test uses saved values. Save settings first to test current frequency.",
           "visibleIf": {
             "field": "show_diagnostics",
             "value": true
@@ -350,7 +359,7 @@
           "element": "input",
           "label": "Ensemble",
           "value": "12B",
-          "doc": "DAB ensemble (e.g., 12B)",
+          "doc": "Ensemble ID that broadcasts the service (e.g., 12B for BBC Radio1 in UK). Use DAB scan to discover ensembles in your location.",
           "visibleIf": {
             "field": "show_diagnostics",
             "value": true
@@ -360,8 +369,8 @@
           "id": "manual_dab_service",
           "element": "input",
           "label": "Service Name",
-          "value": "",
-          "doc": "DAB service name (e.g., BBC Radio 1)",
+          "value": "BBC Radio1",
+          "doc": "Exact service name as broadcast (e.g., BBC Radio1 not BBC Radio 1). This is the technical identifier from the ensemble, which may differ from the station's display name.",
           "visibleIf": {
             "field": "show_diagnostics",
             "value": true
@@ -371,8 +380,17 @@
           "id": "manual_dab_gain",
           "element": "input",
           "label": "Test Gain",
-          "value": 80,
-          "doc": "Gain to use for this test (0-100, different dongles need different values)",
+          "value": 20,
+          "doc": "RTL-SDR RF amplifier gain (0-100). Affects signal-to-noise ratio and overload threshold, not volume. NESDR Smart dongles have better amplifiers: start at 20. Generic RTL-SDR needs higher gain: start at 80. Adjust if distorted (lower) or no signal (higher).",
+          "visibleIf": {
+            "field": "show_diagnostics",
+            "value": true
+          }
+        },
+        {
+          "id": "test_dab_save_required",
+          "element": "section",
+          "description": "Required: Test uses saved values. Save settings first to test current station.",
           "visibleIf": {
             "field": "show_diagnostics",
             "value": true
@@ -398,7 +416,7 @@
         {
           "id": "diagnostics_save_explanation",
           "element": "section",
-          "description": "Optional: Save test values for next time. Test buttons work without saving.",
+          "description": "Save test values for next time.",
           "visibleIf": {
             "field": "show_diagnostics",
             "value": true

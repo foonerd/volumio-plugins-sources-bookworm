@@ -852,8 +852,17 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
         id: 'manual_fm_frequency',
         element: 'input',
         label: self.getI18nString('MANUAL_FM_FREQUENCY'),
-        value: self.config.get('manual_fm_frequency', '98.8'),
+        value: self.config.get('manual_fm_frequency', '94.9'),
         doc: self.getI18nString('MANUAL_FM_FREQUENCY_DOC'),
+        visibleIf: {
+          field: 'show_diagnostics',
+          value: true
+        }
+      },
+      {
+        id: 'test_fm_save_required',
+        element: 'section',
+        description: self.getI18nString('TEST_FM_SAVE_REQUIRED'),
         visibleIf: {
           field: 'show_diagnostics',
           value: true
@@ -901,7 +910,7 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
         id: 'manual_dab_service',
         element: 'input',
         label: self.getI18nString('MANUAL_DAB_SERVICE'),
-        value: self.config.get('manual_dab_service', ''),
+        value: self.config.get('manual_dab_service', 'BBC Radio1'),
         doc: self.getI18nString('MANUAL_DAB_SERVICE_DOC'),
         visibleIf: {
           field: 'show_diagnostics',
@@ -912,8 +921,17 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
         id: 'manual_dab_gain',
         element: 'input',
         label: self.getI18nString('MANUAL_DAB_GAIN'),
-        value: self.config.get('manual_dab_gain', 80),
+        value: self.config.get('manual_dab_gain', 20),
         doc: self.getI18nString('MANUAL_DAB_GAIN_DOC'),
+        visibleIf: {
+          field: 'show_diagnostics',
+          value: true
+        }
+      },
+      {
+        id: 'test_dab_save_required',
+        element: 'section',
+        description: self.getI18nString('TEST_DAB_SAVE_REQUIRED'),
         visibleIf: {
           field: 'show_diagnostics',
           value: true

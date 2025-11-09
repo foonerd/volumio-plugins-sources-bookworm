@@ -33,6 +33,33 @@ Receive FM and DAB/DAB+ radio using RTL-SDR USB tuners.
 - Per-row save buttons for quick edits
 - Bulk operations (clear all, rescan)
 
+### Diagnostics Tools (v0.9.7)
+The plugin includes diagnostic tools to test your USB dongle before scanning:
+
+- **Purpose**: Verify your dongle can receive specific frequencies
+- **When to use**: Station won't play, weak signal, testing new dongle
+- **How**: Enter a known strong station, save settings, click test
+- **Expected result**: You should hear audio
+
+**Understanding Gain Settings**:
+- Gain controls the RTL-SDR RF amplifier, affecting signal-to-noise ratio and overload threshold
+- **NESDR Smart dongles**: Start with gain 20 (better amplifiers, prevent overload)
+- **Generic RTL-SDR**: Start with gain 80 (needs higher amplification)
+- Adjust if: distorted (lower gain) or no signal (higher gain)
+- Note: This is RF amplification, not volume control
+
+**Technical Service Names**:
+DAB stations use technical identifiers that may differ from display names:
+- Example: Enter "BBC Radio1" (no space) for the station branded as "BBC Radio 1" (with space)
+- These are broadcast identifiers from the DAB ensemble
+- Must match exactly as transmitted
+
+**Default Test Values (UK/London)**:
+- FM: 94.9 MHz (BBC Radio London)
+- DAB Ensemble: 12B
+- DAB Service: BBC Radio1
+- Test Gain: 20 (NESDR Smart)
+
 ### Web Interface Access
 The station management interface is accessible at:
 - `http://<volumio-ip>:3456`
@@ -68,7 +95,15 @@ The station management interface is accessible at:
    - Search for stations
    - Rescan for new stations
 
-### Save Options (v0.9.2)
+### Testing Your Dongle (v0.9.7)
+1. Open plugin settings
+2. Enable "Show Diagnostics"
+3. Enter test values (defaults provided for UK/London)
+4. Click "Save Test Settings"
+5. Click test button (FM or DAB)
+6. Adjust gain if needed based on audio quality
+
+### Save Options
 Three ways to save changes:
 - Click green save button on individual changed rows
 - Click "Save (n)" button at top (saves all changes)
@@ -87,6 +122,7 @@ Target repository: https://github.com/volumio/volumio-plugins-sources-bookworm
 - Integrated with Volumio's music_service framework
 - Web management interface on port 3456
 - Station data stored in JSON format
+- DAB decoding via dab-cmdline (https://github.com/JvanKatwijk/dab-cmdline/tree/master/example-3)
 
 ## Troubleshooting
 
@@ -99,6 +135,12 @@ Target repository: https://github.com/volumio/volumio-plugins-sources-bookworm
 - Check antenna is connected
 - Try adjusting scan sensitivity in settings
 - Ensure good signal reception (location dependent)
+- Use diagnostics tools to test reception first
+
+### Test buttons require save (v0.9.7)
+- Test buttons read saved configuration values, not current inputs
+- Always click "Save Test Settings" before testing
+- This ensures consistent test conditions
 
 ### Web interface not accessible
 - Verify port 3456 is not blocked by firewall
@@ -113,9 +155,20 @@ GPL-3.0
 
 Just a Nerd
 
-## Version
+## Version History
 
-Current: v0.9.2
+### v0.9.7 (Current)
+- Clarified test button requirements with clear warning messages
+- Improved default values (UK/London optimized)
+- Enhanced documentation for technical service names vs display names
+- Added comprehensive RF gain explanation
+- Better diagnostics guidance for troubleshooting
+
+### v0.9.6
+- Fixed message element rendering in UI
+- Changed from 'message' to 'section' elements with 'description' field
+
+### v0.9.2
 - Defense-in-depth save strategy
 - Per-row save buttons
 - Improved user feedback
