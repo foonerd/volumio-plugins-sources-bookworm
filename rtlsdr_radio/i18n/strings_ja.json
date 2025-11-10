@@ -275,5 +275,7 @@
   "BROWSE_DAB_DELETED_COUNT": "DAB 削除された局（{0} 個）",
   
   "BROWSE_NO_HIDDEN": "非表示の局はありません",
-  "BROWSE_HIDDEN_COUNT": "非表示の局（{0} 個）"
+  "BROWSE_HIDDEN_COUNT": "非表示の局（{0} 個）",
+  
+  "CLOSE_WINDOW": "閉じる"
 }

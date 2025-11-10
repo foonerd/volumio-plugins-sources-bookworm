@@ -275,5 +275,7 @@
   "BROWSE_DAB_DELETED_COUNT": "DAB gelöschte Sender ({0})",
   
   "BROWSE_NO_HIDDEN": "Keine versteckten Sender",
-  "BROWSE_HIDDEN_COUNT": "Versteckte Sender ({0})"
+  "BROWSE_HIDDEN_COUNT": "Versteckte Sender ({0})",
+  
+  "CLOSE_WINDOW": "Schließen"
 }

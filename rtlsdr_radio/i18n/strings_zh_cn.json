@@ -275,5 +275,7 @@
   "BROWSE_DAB_DELETED_COUNT": "DAB 已删除的电台（{0} 个）",
   
   "BROWSE_NO_HIDDEN": "无隐藏的电台",
-  "BROWSE_HIDDEN_COUNT": "隐藏的电台（{0} 个）"
+  "BROWSE_HIDDEN_COUNT": "隐藏的电台（{0} 个）",
+  
+  "CLOSE_WINDOW": "关闭"
 }

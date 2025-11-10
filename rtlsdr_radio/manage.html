@@ -28,6 +28,13 @@
       top: 0;
       z-index: 100;
       box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .header-content {
+      flex: 1;
     }
     
     .header h1 {
@@ -40,6 +47,32 @@
     .header .subtitle {
       font-size: 13px;
       color: #999;
+    }
+    
+    .header-close-btn {
+      background: #d32f2f;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: 500;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-left: 20px;
+      white-space: nowrap;
+    }
+    
+    .header-close-btn:hover {
+      background: #b71c1c;
+    }
+    
+    .header-close-btn:active {
+      background: #8b0000;
+    }
+    
+    .header-close-btn.hidden {
+      display: none;
     }
     
     .container {
@@ -803,8 +836,13 @@
 </head>
 <body>
   <div class="header">
-    <h1 id="page-title">Station Management</h1>
-    <div class="subtitle" id="page-subtitle">RTL-SDR Radio Plugin</div>
+    <div class="header-content">
+      <h1 id="page-title">Station Management</h1>
+      <div class="subtitle" id="page-subtitle">RTL-SDR Radio Plugin</div>
+    </div>
+    <button id="close-window-btn" class="header-close-btn hidden" onclick="window.close()">
+      <i class="fa fa-times"></i> <span id="close-btn-text">Close</span>
+    </button>
   </div>
   
   <div class="container">
@@ -1217,6 +1255,17 @@
       document.getElementById('fm-search').placeholder = t('SEARCH_FM');
       document.getElementById('dab-search').placeholder = t('SEARCH_DAB');
       document.getElementById('recycle-search').placeholder = t('SEARCH_RECYCLE');
+      document.getElementById('close-btn-text').textContent = t('CLOSE_WINDOW');
+      
+      // Show close button only when opened in new tab (not in iframe)
+      const closeBtn = document.getElementById('close-window-btn');
+      if (window.parent === window) {
+        // Opened in new tab/window, show close button
+        closeBtn.classList.remove('hidden');
+      } else {
+        // Opened in iframe, hide close button
+        closeBtn.classList.add('hidden');
+      }
     }
     
     // Tab switching

@@ -275,5 +275,7 @@
   "BROWSE_DAB_DELETED_COUNT": "Estações DAB eliminadas ({0})",
   
   "BROWSE_NO_HIDDEN": "Nenhuma estação oculta",
-  "BROWSE_HIDDEN_COUNT": "Estações ocultas ({0})"
+  "BROWSE_HIDDEN_COUNT": "Estações ocultas ({0})",
+  
+  "CLOSE_WINDOW": "Fechar"
 }
