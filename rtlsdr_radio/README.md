@@ -33,6 +33,27 @@ Receive FM and DAB/DAB+ radio using RTL-SDR USB tuners.
 - Per-row save buttons for quick edits
 - Bulk operations (clear all, rescan)
 
+### Multilingual Support
+The plugin fully supports internationalization with automatic language detection:
+- Plugin settings interface displays in your selected Volumio language
+- Web management interface automatically follows Volumio's language setting
+- No manual configuration required
+
+**Supported Languages:**
+- English
+- German (Deutsch)
+- Spanish (Espanol)
+- French (Francais)
+- Italian (Italiano)
+- Japanese (日本語)
+- Dutch (Nederlands)
+- Polish (Polski)
+- Portuguese (Portugues)
+- Russian (Русский)
+- Chinese Simplified (简体中文)
+
+To change language: Settings > Appearance > Language. Both plugin settings and web manager will update automatically.
+
 ### Diagnostics Tools
 The plugin includes diagnostic tools to test your USB dongle before scanning:
 
@@ -174,6 +195,13 @@ Just a Nerd
 - Clearer toggle labels: "Show" instead of "Enable"
 - Simplified installation (no Volumio core file modification)
 - Two access methods for station manager (via plugin settings)
+
+#### Language support
+- Full multilingual support: 11 languages fully translated
+- Plugin settings UI now uses Volumio's standard translation system
+- Web manager automatically detects Volumio's language setting via API
+- Both plugin settings and web interface respect user's language choice
+- No manual configuration required for language selection
 
 ### v0.9.7
 - Clarified test button requirements with clear warning messages
