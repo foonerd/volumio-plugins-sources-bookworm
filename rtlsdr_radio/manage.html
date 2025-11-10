@@ -1935,6 +1935,110 @@
     
     // Initialize
     loadTranslations().then(() => loadStations());
+    // Touchscreen keyboard support for iframe context
+    // When running in iframe, notify parent window about input focus for onscreen keyboard
+    if (window.parent !== window) {
+      // Running in iframe - setup focus/blur event delegation
+      let hideKeyboardTimeout = null;
+      let currentFocusedInput = null;
+      let keyboardRelayMode = false; // Track if keyboard is in relay mode
+      
+      // Add CSS to maintain focus appearance
+      const style = document.createElement('style');
+      style.textContent = '.volumio-keyboard-focused { outline: 2px solid #4CAF50 !important; outline-offset: -2px !important; }';
+      document.head.appendChild(style);
+      
+      document.addEventListener('focusin', (e) => {
+        if (e.target.matches('input, textarea')) {
+          // Track currently focused input
+          currentFocusedInput = e.target;
+          keyboardRelayMode = true; // Entering keyboard relay mode
+          
+          // Add visual focus class
+          e.target.classList.add('volumio-keyboard-focused');
+          
+          // Cancel any pending hide operation
+          if (hideKeyboardTimeout) {
+            clearTimeout(hideKeyboardTimeout);
+            hideKeyboardTimeout = null;
+          }
+          
+          // Notify parent window that an input was focused
+          window.parent.postMessage({
+            type: 'volumio-input-focus',
+            action: 'show-keyboard'
+          }, '*');
+        }
+      }, true);
+      
+      document.addEventListener('focusout', (e) => {
+        if (e.target.matches('input, textarea')) {
+          // Don't schedule hide if we're in keyboard relay mode
+          // The keyboard should stay visible even though input lost real focus
+          if (!keyboardRelayMode) {
+            // Normal hide logic for when keyboard not in relay mode
+            hideKeyboardTimeout = setTimeout(() => {
+              currentFocusedInput = null;
+              e.target.classList.remove('volumio-keyboard-focused');
+              
+              window.parent.postMessage({
+                type: 'volumio-input-focus',
+                action: 'hide-keyboard'
+              }, '*');
+              hideKeyboardTimeout = null;
+            }, 300);
+          }
+          // If in relay mode, do nothing - keyboard stays visible
+        }
+      }, true);
+      
+      // Listen for explicit close requests (user clicks outside, etc)
+      document.addEventListener('click', (e) => {
+        if (keyboardRelayMode && !e.target.matches('input, textarea')) {
+          // User clicked outside input while keyboard active - close it
+          keyboardRelayMode = false;
+          
+          if (currentFocusedInput) {
+            currentFocusedInput.classList.remove('volumio-keyboard-focused');
+            currentFocusedInput = null;
+          }
+          
+          window.parent.postMessage({
+            type: 'volumio-input-focus',
+            action: 'hide-keyboard'
+          }, '*');
+        }
+      }, true);
+      
+      // Listen for keystroke events from parent (keyboard input relay)
+      window.addEventListener('message', (e) => {
+        if (e.data && e.data.type === 'volumio-keystroke' && e.data.action === 'input') {
+          // Apply keystroke to currently tracked input
+          if (currentFocusedInput) {
+            const input = currentFocusedInput;
+            const cursorPos = input.selectionStart || 0;
+            const currentValue = input.value || '';
+            const newChar = e.data.value;
+            
+            // Insert character at cursor position
+            const newValue = currentValue.substring(0, cursorPos) + newChar + currentValue.substring(cursorPos);
+            input.value = newValue;
+            
+            // Move cursor forward
+            const newCursorPos = cursorPos + newChar.length;
+            input.setSelectionRange(newCursorPos, newCursorPos);
+            
+            // Trigger input event for any listeners
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            
+            // Maintain visual focus
+            if (!input.classList.contains('volumio-keyboard-focused')) {
+              input.classList.add('volumio-keyboard-focused');
+            }
+          }
+        }
+      }, false);
+    }
   </script>
 </body>
 </html>
