@@ -371,6 +371,17 @@ ControllerRtlsdrRadio.prototype.startManagementServer = function() {
       });
     });
     
+    // API: Get current Volumio language setting
+    self.expressApp.get('/api/language', function(req, res) {
+      try {
+        var lang = self.commandRouter.sharedVars.get('language_code') || 'en';
+        res.json({ language: lang });
+      } catch (e) {
+        self.logger.error('[RTL-SDR Radio] Failed to get language setting: ' + e);
+        res.json({ language: 'en' });
+      }
+    });
+    
     // Start server
     self.expressServer = self.expressApp.listen(self.managementPort, function() {
       self.logger.info('[RTL-SDR Radio] Management server started on port ' + self.managementPort);
@@ -595,14 +606,17 @@ ControllerRtlsdrRadio.prototype.populateUIConfig = function(uiconf) {
       showWebMgmt.value = self.config.get('show_web_management', true);
     }
     
+    var managementUrl = self.getManagementUrl();
+    
     var openCurrentBtn = findContentItem(webManagementSection, 'open_current_button');
     if (openCurrentBtn && openCurrentBtn.onClick) {
-      openCurrentBtn.onClick.url = '/iframe-page/' + self.getManagementUrl().replace(/\//g, '~2F');
+      // Web manager fetches language from /api/language, no URL parameter needed
+      openCurrentBtn.onClick.url = '/iframe-page/' + managementUrl.replace(/\//g, '~2F');
     }
     
     var openTabBtn = findContentItem(webManagementSection, 'open_tab_button');
     if (openTabBtn && openTabBtn.onClick) {
-      openTabBtn.onClick.url = self.getManagementUrl();
+      openTabBtn.onClick.url = managementUrl;
     }
   }
   

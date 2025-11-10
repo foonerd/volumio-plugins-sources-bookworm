@@ -934,11 +934,25 @@
     
     async function loadTranslations() {
       try {
-        const response = await fetch('/api/i18n/en');
+        // Fetch current Volumio language setting from server
+        const langResponse = await fetch('/api/language');
+        const langData = await langResponse.json();
+        const lang = langData.language || 'en';
+        
+        // Fetch translations for that language
+        const response = await fetch('/api/i18n/' + lang);
         i18n = await response.json();
         updateUIText();
       } catch (error) {
         console.error('Failed to load translations:', error);
+        // Fallback to English on error
+        try {
+          const response = await fetch('/api/i18n/en');
+          i18n = await response.json();
+          updateUIText();
+        } catch (fallbackError) {
+          console.error('Failed to load fallback translations:', fallbackError);
+        }
       }
     }
     
