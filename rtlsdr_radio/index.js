@@ -513,6 +513,7 @@ ControllerRtlsdrRadio.prototype.loadI18nStrings = function() {
   var defer = libQ.defer();
   
   var lang_code = self.commandRouter.sharedVars.get('language_code') || 'en';
+  self.current_language = lang_code;
   var langFile = __dirname + '/i18n/strings_' + lang_code + '.json';
   var defaultFile = __dirname + '/i18n/strings_en.json';
   
@@ -1378,7 +1379,7 @@ ControllerRtlsdrRadio.prototype.showMainOrganizedView = function() {
       service: 'rtlsdr_radio',
       type: 'folder',
       title: self.getI18nString('FAVORITES'),
-      artist: favorites.length + ' station' + (favorites.length !== 1 ? 's' : ''),
+      artist: favorites.length + ' ' + self.getI18nString(favorites.length !== 1 ? 'STATIONS' : 'STATION'),
       album: '',
       icon: 'fa fa-star',
       uri: 'rtlsdr://favorites'
@@ -1390,7 +1391,7 @@ ControllerRtlsdrRadio.prototype.showMainOrganizedView = function() {
       service: 'rtlsdr_radio',
       type: 'folder',
       title: self.getI18nString('BROWSE_RECENTLY_PLAYED'),
-      artist: recent.length + ' station' + (recent.length !== 1 ? 's' : ''),
+      artist: recent.length + ' ' + self.getI18nString(recent.length !== 1 ? 'STATIONS' : 'STATION'),
       album: '',
       icon: 'fa fa-history',
       uri: 'rtlsdr://recent'
@@ -1413,7 +1414,7 @@ ControllerRtlsdrRadio.prototype.showMainOrganizedView = function() {
     service: 'rtlsdr_radio',
     type: 'folder',
     title: self.getI18nString('FM_RADIO'),
-    artist: fmCount + ' station' + (fmCount !== 1 ? 's' : ''),
+    artist: fmCount + ' ' + self.getI18nString(fmCount !== 1 ? 'STATIONS' : 'STATION'),
     album: '',
     icon: 'fa fa-signal',
     uri: 'rtlsdr://fm'
@@ -1423,7 +1424,7 @@ ControllerRtlsdrRadio.prototype.showMainOrganizedView = function() {
     service: 'rtlsdr_radio',
     type: 'folder',
     title: self.getI18nString('DAB_RADIO'),
-    artist: dabCount + ' service' + (dabCount !== 1 ? 's' : ''),
+    artist: dabCount + ' ' + self.getI18nString(dabCount !== 1 ? 'SERVICES' : 'SERVICE'),
     album: '',
     icon: 'fa fa-rss',
     uri: 'rtlsdr://dab'
@@ -1445,7 +1446,7 @@ ControllerRtlsdrRadio.prototype.showMainOrganizedView = function() {
         service: 'rtlsdr_radio',
         type: 'folder',
         title: self.getI18nString('BROWSE_DELETED_STATIONS'),
-        artist: deletedCount + ' station' + (deletedCount !== 1 ? 's' : ''),
+        artist: deletedCount + ' ' + self.getI18nString(deletedCount !== 1 ? 'STATIONS' : 'STATION'),
         album: '',
         icon: 'fa fa-trash',
         uri: 'rtlsdr://deleted'
@@ -1457,7 +1458,7 @@ ControllerRtlsdrRadio.prototype.showMainOrganizedView = function() {
         service: 'rtlsdr_radio',
         type: 'folder',
         title: self.getI18nString('BROWSE_HIDDEN_STATIONS'),
-        artist: hiddenCount + ' station' + (hiddenCount !== 1 ? 's' : ''),
+        artist: hiddenCount + ' ' + self.getI18nString(hiddenCount !== 1 ? 'STATIONS' : 'STATION'),
         album: '',
         icon: 'fa fa-eye-slash',
         uri: 'rtlsdr://hidden'
@@ -1716,7 +1717,7 @@ ControllerRtlsdrRadio.prototype.showDabByEnsembleView = function() {
       service: 'rtlsdr_radio',
       type: 'folder',
       title: ensemble.name,
-      artist: ensemble.stations.length + ' service' + (ensemble.stations.length !== 1 ? 's' : '') + 
+      artist: ensemble.stations.length + ' ' + self.getI18nString(ensemble.stations.length !== 1 ? 'SERVICES' : 'SERVICE') + 
               ' on Ch ' + ensemble.channel,
       album: 'DAB Ensembles',
       icon: 'fa fa-list',
@@ -1911,7 +1912,7 @@ ControllerRtlsdrRadio.prototype.showDeletedView = function() {
       service: 'rtlsdr_radio',
       type: 'folder',
       title: self.getI18nString('BROWSE_FM_DELETED'),
-      artist: fmDeleted + ' station' + (fmDeleted !== 1 ? 's' : ''),
+      artist: fmDeleted + ' ' + self.getI18nString(fmDeleted !== 1 ? 'STATIONS' : 'STATION'),
       album: '',
       icon: 'fa fa-signal',
       uri: 'rtlsdr://deleted/fm'
@@ -1923,7 +1924,7 @@ ControllerRtlsdrRadio.prototype.showDeletedView = function() {
       service: 'rtlsdr_radio',
       type: 'folder',
       title: self.getI18nString('BROWSE_DAB_DELETED'),
-      artist: dabDeleted + ' service' + (dabDeleted !== 1 ? 's' : ''),
+      artist: dabDeleted + ' ' + self.getI18nString(dabDeleted !== 1 ? 'SERVICES' : 'SERVICE'),
       album: '',
       icon: 'fa fa-rss',
       uri: 'rtlsdr://deleted/dab'

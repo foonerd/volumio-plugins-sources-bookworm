@@ -143,6 +143,10 @@
   "DAB_RADIO": "DAB Radio",
   "FAVORITES": "Favorites",
   "RECENTLY_PLAYED": "Recently Played",
+  "STATION": "station",
+  "STATIONS": "stations",
+  "SERVICE": "service",
+  "SERVICES": "services",
   
   "MENU_MANAGER": "FM/DAB Station Manager",
   
