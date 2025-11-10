@@ -1,6 +1,6 @@
 {
   "name": "rtlsdr_radio",
-  "version": "0.9.8",
+  "version": "0.9.9",
   "description": "Receive FM and DAB/DAB+ radio using RTL-SDR USB tuners. IMPORTANT: Restart Volumio before enabling this plugin.",
   "main": "index.js",
   "scripts": {
@@ -25,7 +25,7 @@
     "has_configuration": true,
     "has_alsa_contribution": true,
     "details": "Receive FM and DAB/DAB+ radio using RTL-SDR USB tuners. IMPORTANT: Restart Volumio before enabling this plugin.",
-    "changelog": "v0.9.8 - UI reorganization: Station manager now appears first in settings (open by default) for immediate access. FM/DAB config sections collapsed by default for cleaner presentation. Clarified toggle labels (Show vs Enable). Settings menu integration disabled pending Volumio core API support."
+    "changelog": "v0.9.9 - Custom confirmation modals replace browser dialogs. Real-time scanning progress with elapsed time counter (formatted as 1m 30s). Fixed DAB scan duration message (now correctly shows 2-5 minutes). Progress feedback in both manage.html and Volumio UI with formatted time display. Added /api/status endpoint for device state monitoring."
   },
   "engines": {
     "node": ">=20",

@@ -382,6 +382,19 @@ ControllerRtlsdrRadio.prototype.startManagementServer = function() {
       }
     });
     
+    // API: Get device status
+    self.expressApp.get('/api/status', function(req, res) {
+      try {
+        res.json({ 
+          deviceState: self.deviceState,
+          timestamp: Date.now()
+        });
+      } catch (e) {
+        self.logger.error('[RTL-SDR Radio] Failed to get status: ' + e);
+        res.status(500).json({ error: e.toString() });
+      }
+    });
+    
     // Start server
     self.expressServer = self.expressApp.listen(self.managementPort, function() {
       self.logger.info('[RTL-SDR Radio] Management server started on port ' + self.managementPort);
@@ -553,6 +566,16 @@ ControllerRtlsdrRadio.prototype.formatString = function(str, ...args) {
   }
   
   return str;
+};
+
+ControllerRtlsdrRadio.prototype.formatElapsedTime = function(seconds) {
+  // Format elapsed time as "Xm Ys" or "Xs"
+  if (seconds < 60) {
+    return seconds + 's';
+  }
+  var minutes = Math.floor(seconds / 60);
+  var remainingSeconds = seconds % 60;
+  return minutes + 'm ' + remainingSeconds + 's';
 };
 
 ControllerRtlsdrRadio.prototype.getConfigurationFiles = function() {
@@ -3357,7 +3380,7 @@ ControllerRtlsdrRadio.prototype.scanFm = function() {
       self.setDeviceState('scanning_fm');
       
       self.logger.info('[RTL-SDR Radio] Starting FM scan...');
-      self.commandRouter.pushToastMessage('info', self.getI18nString('FM_RADIO'), self.getI18nString('TOAST_FM_SCANNING'));
+      self.commandRouter.pushToastMessage('info', self.getI18nString('FM_RADIO'), self.getI18nString('TOAST_FM_SCANNING_UI'));
       
       // Generate unique temp file name
       var scanFile = '/tmp/fm_scan_' + Date.now() + '.csv';
@@ -3369,6 +3392,14 @@ ControllerRtlsdrRadio.prototype.scanFm = function() {
       var command = 'rtl_power -f 88M:108M:125k -i 10 -1 ' + scanFile;
       
       self.logger.info('[RTL-SDR Radio] Scan command: ' + command);
+      
+      // Push progress update after 5 seconds
+      setTimeout(function() {
+        if (self.deviceState === 'scanning_fm') {
+          self.commandRouter.pushToastMessage('info', self.getI18nString('FM_RADIO'), 
+            self.getI18nString('TOAST_FM_SCANNING_PROGRESS'));
+        }
+      }, 5000);
       
       self.scanProcess = exec(command, { timeout: 30000 }, function(error, stdout, stderr) {
         if (error) {
@@ -3575,7 +3606,7 @@ ControllerRtlsdrRadio.prototype.scanDab = function() {
       self.setDeviceState('scanning_dab');
       
       self.logger.info('[RTL-SDR Radio] Starting DAB scan...');
-      self.commandRouter.pushToastMessage('info', self.getI18nString('DAB_RADIO'), self.getI18nString('TOAST_DAB_SCANNING'));
+      self.commandRouter.pushToastMessage('info', self.getI18nString('DAB_RADIO'), self.getI18nString('TOAST_DAB_SCANNING_UI'));
       
       // Generate unique temp file name
       var scanFile = '/tmp/dab_scan_' + Date.now() + '.json';
@@ -3591,7 +3622,25 @@ ControllerRtlsdrRadio.prototype.scanDab = function() {
       
       self.logger.info('[RTL-SDR Radio] DAB scan command: ' + command);
       
+      // Track scan start time for progress updates
+      var scanStartTime = Date.now();
+      
+      // Push progress updates every 30 seconds
+      var dabProgressInterval = setInterval(function() {
+        if (self.deviceState === 'scanning_dab') {
+          var elapsed = Math.floor((Date.now() - scanStartTime) / 1000);
+          var formattedTime = self.formatElapsedTime(elapsed);
+          self.commandRouter.pushToastMessage('info', self.getI18nString('DAB_RADIO'), 
+            self.formatString(self.getI18nString('TOAST_DAB_SCANNING_PROGRESS'), formattedTime));
+        } else {
+          clearInterval(dabProgressInterval);
+        }
+      }, 30000);
+      
       self.scanProcess = exec(command, { timeout: 300000 }, function(error, stdout, stderr) {
+        // Clear progress interval
+        clearInterval(dabProgressInterval);
+        
         // Check if scan file was created (scanner may return error code but still produce valid output)
         var scanFileExists = false;
         try {

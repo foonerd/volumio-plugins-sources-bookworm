@@ -656,6 +656,64 @@
       line-height: 1.5;
     }
     
+    .modal-header.info {
+      background: #3498db;
+      color: #fff;
+      border-bottom-color: #2980b9;
+    }
+    
+    .modal-header.danger {
+      background: #e74c3c;
+      color: #fff;
+      border-bottom-color: #c0392b;
+    }
+    
+    .modal-header.success {
+      background: #54b948;
+      color: #fff;
+      border-bottom-color: #459a3c;
+    }
+    
+    .spinner-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 0;
+    }
+    
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #404040;
+      border-top-color: #54b948;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .elapsed-time {
+      text-align: center;
+      font-size: 14px;
+      color: #999;
+      margin-top: 15px;
+    }
+    
+    .elapsed-time .time-value {
+      color: #54b948;
+      font-weight: 500;
+      font-family: 'Courier New', monospace;
+    }
+    
+    .scanning-info {
+      text-align: center;
+      font-size: 13px;
+      color: #999;
+      margin-top: 10px;
+    }
+    
     .modal-footer {
       padding: 15px 20px;
       border-top: 1px solid #404040;
@@ -916,12 +974,59 @@
     </div>
   </div>
   
+  <!-- Confirmation Modal -->
+  <div class="modal-overlay" id="confirm-modal">
+    <div class="modal">
+      <div class="modal-header" id="confirm-modal-header">
+        <i class="fa fa-question-circle" id="confirm-modal-icon"></i>
+        <h2 id="confirm-modal-title">Confirm Action</h2>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-modal-message">Are you sure?</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="confirm-cancel">
+          <span id="confirm-cancel-text">Cancel</span>
+        </button>
+        <button class="btn btn-primary" id="confirm-ok">
+          <span id="confirm-ok-text">Confirm</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Scanning Progress Modal -->
+  <div class="modal-overlay" id="scanning-modal">
+    <div class="modal">
+      <div class="modal-header info" id="scanning-modal-header">
+        <i class="fa fa-radio" id="scanning-modal-icon"></i>
+        <h2 id="scanning-modal-title">Scanning</h2>
+      </div>
+      <div class="modal-body">
+        <p id="scanning-modal-message">Scanning in progress...</p>
+        <div class="spinner-container">
+          <div class="spinner"></div>
+        </div>
+        <div class="elapsed-time">
+          <span id="elapsed-label">Elapsed time:</span>
+          <span class="time-value" id="elapsed-value">0</span>
+          <span id="elapsed-unit">seconds</span>
+        </div>
+        <div class="scanning-info" id="scanning-info">
+          This typically takes a few seconds
+        </div>
+      </div>
+    </div>
+  </div>
+  
   <script>
     let fmStations = [];
     let dabStations = [];
     let hasChanges = false;
     let i18n = {};
     let pendingFreqChange = null;
+    let scanningInterval = null;
+    let scanStartTime = null;
     
     // i18n functions
     function t(key, ...args) {
@@ -930,6 +1035,138 @@
         str = str.replace('{' + index + '}', arg);
       });
       return str;
+    }
+    
+    // Generic confirmation modal
+    function showConfirmModal(title, message, type = 'warning') {
+      return new Promise((resolve) => {
+        const modal = document.getElementById('confirm-modal');
+        const header = document.getElementById('confirm-modal-header');
+        const icon = document.getElementById('confirm-modal-icon');
+        
+        // Set header style based on type
+        header.className = 'modal-header';
+        if (type === 'danger') {
+          header.classList.add('danger');
+          icon.className = 'fa fa-exclamation-triangle';
+        } else if (type === 'warning') {
+          header.classList.add('warning');
+          icon.className = 'fa fa-exclamation-circle';
+        } else if (type === 'info') {
+          header.classList.add('info');
+          icon.className = 'fa fa-question-circle';
+        }
+        
+        // Set content
+        document.getElementById('confirm-modal-title').textContent = title;
+        document.getElementById('confirm-modal-message').textContent = message;
+        document.getElementById('confirm-cancel-text').textContent = t('BTN_CANCEL');
+        document.getElementById('confirm-ok-text').textContent = t('BTN_CONFIRM');
+        
+        // Show modal
+        modal.classList.add('show');
+        
+        // Set up event handlers
+        const handleOk = () => {
+          modal.classList.remove('show');
+          cleanup();
+          resolve(true);
+        };
+        
+        const handleCancel = () => {
+          modal.classList.remove('show');
+          cleanup();
+          resolve(false);
+        };
+        
+        const cleanup = () => {
+          document.getElementById('confirm-ok').removeEventListener('click', handleOk);
+          document.getElementById('confirm-cancel').removeEventListener('click', handleCancel);
+        };
+        
+        document.getElementById('confirm-ok').addEventListener('click', handleOk);
+        document.getElementById('confirm-cancel').addEventListener('click', handleCancel);
+      });
+    }
+    
+    // Format elapsed time as "Xm Ys" or "Xs"
+    function formatElapsedTime(seconds) {
+      if (seconds < 60) {
+        return seconds + 's';
+      }
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+      return minutes + 'm ' + remainingSeconds + 's';
+    }
+    
+    // Show scanning progress modal
+    function showScanningModal(type) {
+      const modal = document.getElementById('scanning-modal');
+      const title = type === 'fm' ? t('MODAL_SCANNING_FM_TITLE') : t('MODAL_SCANNING_DAB_TITLE');
+      const message = t('MODAL_SCANNING_PROGRESS');
+      const info = type === 'fm' ? t('MODAL_SCANNING_WAIT_FM') : t('MODAL_SCANNING_WAIT_DAB');
+      
+      document.getElementById('scanning-modal-title').textContent = title;
+      document.getElementById('scanning-modal-message').textContent = message;
+      document.getElementById('scanning-info').textContent = info;
+      document.getElementById('elapsed-value').textContent = '0s';
+      document.getElementById('elapsed-label').textContent = t('MODAL_ELAPSED_LABEL');
+      document.getElementById('elapsed-unit').textContent = '';
+      
+      modal.classList.add('show');
+      
+      // Start elapsed time counter
+      scanStartTime = Date.now();
+      scanningInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - scanStartTime) / 1000);
+        document.getElementById('elapsed-value').textContent = formatElapsedTime(elapsed);
+      }, 1000);
+    }
+    
+    // Hide scanning modal
+    function hideScanningModal() {
+      const modal = document.getElementById('scanning-modal');
+      modal.classList.remove('show');
+      
+      if (scanningInterval) {
+        clearInterval(scanningInterval);
+        scanningInterval = null;
+      }
+      scanStartTime = null;
+    }
+    
+    // Poll scanning status
+    async function pollScanStatus(type) {
+      const expectedState = type === 'fm' ? 'scanning_fm' : 'scanning_dab';
+      
+      const checkStatus = async () => {
+        try {
+          const response = await fetch('/api/status');
+          if (!response.ok) {
+            throw new Error('Status check failed');
+          }
+          
+          const data = await response.json();
+          
+          if (data.deviceState !== expectedState) {
+            // Scan complete
+            hideScanningModal();
+            showToast(t('TOAST_SCAN_COMPLETE_RELOAD'), 'success');
+            setTimeout(() => loadStations(), 1000);
+            return;
+          }
+          
+          // Still scanning, check again
+          setTimeout(checkStatus, 2000);
+          
+        } catch (error) {
+          // Network error, keep trying
+          setTimeout(checkStatus, 2000);
+        }
+      };
+      
+      // Start polling after short delay
+      setTimeout(checkStatus, 2000);
     }
     
     async function loadTranslations() {
@@ -1506,7 +1743,12 @@
         return;
       }
       
-      if (!confirm(t('CONFIRM_CLEAR_FM_MSG', count))) return;
+      const confirmed = await showConfirmModal(
+        t('CONFIRM_CLEAR_FM_TITLE'),
+        t('CONFIRM_CLEAR_FM_MSG', count),
+        'danger'
+      );
+      if (!confirmed) return;
       
       try {
         const response = await fetch('/api/stations/clear-fm', {
@@ -1533,7 +1775,12 @@
         return;
       }
       
-      if (!confirm(t('CONFIRM_CLEAR_DAB_MSG', count))) return;
+      const confirmed = await showConfirmModal(
+        t('CONFIRM_CLEAR_DAB_TITLE'),
+        t('CONFIRM_CLEAR_DAB_MSG', count),
+        'danger'
+      );
+      if (!confirmed) return;
       
       try {
         const response = await fetch('/api/stations/clear-dab', {
@@ -1554,9 +1801,16 @@
     
     // Rescan FM stations
     document.getElementById('rescan-fm-btn').addEventListener('click', async () => {
-      if (!confirm(t('CONFIRM_RESCAN_FM'))) return;
+      const confirmed = await showConfirmModal(
+        t('CONFIRM_RESCAN_FM_TITLE'),
+        t('CONFIRM_RESCAN_FM'),
+        'info'
+      );
+      if (!confirmed) return;
       
       try {
+        showScanningModal('fm');
+        
         const response = await fetch('/api/stations/scan-fm', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
@@ -1565,20 +1819,26 @@
         if (!response.ok) throw new Error('Rescan failed');
         
         showToast(t('TOAST_FM_SCANNING'));
-        
-        // Reload stations after scan completes (give it time)
-        setTimeout(() => loadStations(), 12000);
+        pollScanStatus('fm');
         
       } catch (error) {
+        hideScanningModal();
         showToast(t('TOAST_RESCAN_FAILED', error.message), 'error');
       }
     });
     
     // Rescan DAB stations
     document.getElementById('rescan-dab-btn').addEventListener('click', async () => {
-      if (!confirm(t('CONFIRM_RESCAN_DAB'))) return;
+      const confirmed = await showConfirmModal(
+        t('CONFIRM_RESCAN_DAB_TITLE'),
+        t('CONFIRM_RESCAN_DAB'),
+        'info'
+      );
+      if (!confirmed) return;
       
       try {
+        showScanningModal('dab');
+        
         const response = await fetch('/api/stations/scan-dab', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
@@ -1587,11 +1847,10 @@
         if (!response.ok) throw new Error('Rescan failed');
         
         showToast(t('TOAST_DAB_SCANNING'));
-        
-        // Reload stations after scan completes (give it more time)
-        setTimeout(() => loadStations(), 65000);
+        pollScanStatus('dab');
         
       } catch (error) {
+        hideScanningModal();
         showToast(t('TOAST_RESCAN_FAILED', error.message), 'error');
       }
     });
@@ -1605,7 +1864,12 @@
         return;
       }
       
-      if (!confirm(t('CONFIRM_EMPTY_RECYCLE_MSG', deletedCount))) return;
+      const confirmed = await showConfirmModal(
+        t('CONFIRM_EMPTY_RECYCLE_TITLE'),
+        t('CONFIRM_EMPTY_RECYCLE_MSG', deletedCount),
+        'danger'
+      );
+      if (!confirmed) return;
       
       try {
         const response = await fetch('/api/stations/purge', {
