@@ -90,17 +90,14 @@ The station management interface is accessible through the plugin settings:
 ## Installation
 
 1. Install plugin through Volumio plugin store
-2. **IMPORTANT: Restart Volumio** (`sudo systemctl restart volumio`)
-3. Connect RTL-SDR USB dongle
-4. Enable plugin in Volumio settings
-5. Scan for available stations
-6. Browse and play stations from "FM/DAB Radio" source
-
-**Note:** You MUST restart Volumio after installation and before enabling the plugin. Enabling without restart will cause errors.
+2. Connect RTL-SDR USB dongle
+3. Enable plugin in Volumio settings
+4. Scan for available stations
+5. Browse and play stations from "FM/DAB Radio" source
 
 ## Usage
 
-### Plugin Settings Organization (v0.9.8+)
+### Plugin Settings Organization (v1.0.0+)
 The plugin settings are organized for quick access:
 1. **Radio Station Management** - First section, open by default with immediate access to station manager
 2. **Radio Station Management Configuration** - Advanced settings (hostname override)
@@ -158,7 +155,6 @@ Target repository: https://github.com/volumio/volumio-plugins-sources-bookworm
 ## Troubleshooting
 
 ### Plugin won't enable
-- Ensure Volumio was restarted after plugin installation
 - Check RTL-SDR dongle is connected
 - Verify dongle is detected: `lsusb | grep RTL`
 
@@ -188,7 +184,14 @@ Just a Nerd
 
 ## Version History
 
-### v0.9.8 (Current)
+### v1.0.0 (Current)
+- Production release - beta testing complete
+- Eliminated restart requirement after installation
+- Streamlined install process removes obsolete reboot warnings
+- DVB-T kernel module management fully automated during install
+- Ready for public release
+
+### v0.9.8
 - UI reorganization: Station manager now appears first in plugin settings
 - Station manager section open by default for immediate access
 - FM/DAB configuration sections collapsed by default for cleaner presentation
