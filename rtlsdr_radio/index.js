@@ -513,24 +513,18 @@ ControllerRtlsdrRadio.prototype.loadI18nStrings = function() {
   var defer = libQ.defer();
   
   var lang_code = self.commandRouter.sharedVars.get('language_code') || 'en';
+  var langFile = __dirname + '/i18n/strings_' + lang_code + '.json';
+  var defaultFile = __dirname + '/i18n/strings_en.json';
   
-  self.commandRouter.i18nJson(
-    __dirname + '/i18n/strings_' + lang_code + '.json',
-    __dirname + '/i18n/strings_en.json',
-    __dirname + '/i18n/strings_en.json'
-  )
-  .then(function(i18nStrings) {
-    self.i18nStrings = i18nStrings;
+  try {
+    self.i18nStrings = fs.readJsonSync(langFile);
     self.logger.info('[RTL-SDR Radio] Loaded i18n strings for language: ' + lang_code);
-    defer.resolve();
-  })
-  .fail(function(e) {
-    self.logger.error('[RTL-SDR Radio] Failed to load i18n strings: ' + e);
-    // Fallback to empty object
-    self.i18nStrings = {};
-    defer.resolve(); // Don't fail plugin startup due to missing translations
-  });
+  } catch (e) {
+    self.logger.warn('[RTL-SDR Radio] Failed to load ' + lang_code + ' translations, using English');
+    self.i18nStrings = fs.readJsonSync(defaultFile);
+  }
   
+  defer.resolve();
   return defer.promise;
 };
 
@@ -1236,6 +1230,22 @@ ControllerRtlsdrRadio.prototype.handleBrowseUri = function(curUri) {
   
   self.logger.info('[RTL-SDR Radio] Browse URI: ' + curUri);
   
+  // Reload i18n strings if language changed
+  var current_lang = self.commandRouter.sharedVars.get('language_code') || 'en';
+  if (!self.current_language || self.current_language !== current_lang) {
+    self.current_language = current_lang;
+    var langFile = __dirname + '/i18n/strings_' + current_lang + '.json';
+    var defaultFile = __dirname + '/i18n/strings_en.json';
+    
+    try {
+      self.i18nStrings = fs.readJsonSync(langFile);
+      self.logger.info('[RTL-SDR Radio] Reloaded i18n strings for language: ' + current_lang);
+    } catch (e) {
+      self.logger.warn('[RTL-SDR Radio] Failed to load ' + current_lang + ' translations, using English');
+      self.i18nStrings = fs.readJsonSync(defaultFile);
+    }
+  }
+  
   // Handle rescan triggers (legacy compatibility)
   if (curUri === 'rtlsdr://rescan') {
     self.scanFm()
@@ -1367,7 +1377,7 @@ ControllerRtlsdrRadio.prototype.showMainOrganizedView = function() {
     quickAccessItems.push({
       service: 'rtlsdr_radio',
       type: 'folder',
-      title: 'Favorites',
+      title: self.getI18nString('FAVORITES'),
       artist: favorites.length + ' station' + (favorites.length !== 1 ? 's' : ''),
       album: '',
       icon: 'fa fa-star',
@@ -1402,7 +1412,7 @@ ControllerRtlsdrRadio.prototype.showMainOrganizedView = function() {
   radioSourcesItems.push({
     service: 'rtlsdr_radio',
     type: 'folder',
-    title: 'FM Radio',
+    title: self.getI18nString('FM_RADIO'),
     artist: fmCount + ' station' + (fmCount !== 1 ? 's' : ''),
     album: '',
     icon: 'fa fa-signal',
@@ -1412,7 +1422,7 @@ ControllerRtlsdrRadio.prototype.showMainOrganizedView = function() {
   radioSourcesItems.push({
     service: 'rtlsdr_radio',
     type: 'folder',
-    title: 'DAB Radio',
+    title: self.getI18nString('DAB_RADIO'),
     artist: dabCount + ' service' + (dabCount !== 1 ? 's' : ''),
     album: '',
     icon: 'fa fa-rss',
@@ -1517,7 +1527,7 @@ ControllerRtlsdrRadio.prototype.showFavoritesView = function() {
         type: 'song',
         title: fav.station.customName || fav.station.name,
         artist: fav.station.frequency + ' MHz',
-        album: 'Favorites',
+        album: self.getI18nString('FAVORITES'),
         albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/fm.svg',
         icon: 'fa fa-star',
         uri: uri,
@@ -1530,7 +1540,7 @@ ControllerRtlsdrRadio.prototype.showFavoritesView = function() {
         type: 'webradio',
         title: fav.station.customName || fav.station.name,
         artist: fav.station.ensemble,
-        album: 'Favorites',
+        album: self.getI18nString('FAVORITES'),
         albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/dab.svg',
         icon: 'fa fa-star',
         uri: uri,
@@ -1578,7 +1588,7 @@ ControllerRtlsdrRadio.prototype.showRecentView = function() {
         type: 'song',
         title: rec.station.customName || rec.station.name,
         artist: rec.station.frequency + ' MHz',
-        album: 'Recently Played',
+        album: self.getI18nString('RECENTLY_PLAYED'),
         albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/fm.svg',
         uri: uri,
         menu: self.getStationContextMenu(uri, 'fm', false, rec.station.hidden || false)
@@ -1590,7 +1600,7 @@ ControllerRtlsdrRadio.prototype.showRecentView = function() {
         type: 'webradio',
         title: rec.station.customName || rec.station.name,
         artist: rec.station.ensemble,
-        album: 'Recently Played',
+        album: self.getI18nString('RECENTLY_PLAYED'),
         albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/dab.svg',
         uri: uri,
         menu: self.getStationContextMenu(uri, 'dab', false, rec.station.hidden || false)
@@ -1637,7 +1647,7 @@ ControllerRtlsdrRadio.prototype.showFmView = function() {
           type: 'song',
           title: station.customName || station.name,
           artist: station.frequency + ' MHz',
-          album: 'FM Radio',
+          album: self.getI18nString('FM_RADIO'),
           albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/fm.svg',
           icon: station.favorite ? 'fa fa-star' : (station.hidden ? 'fa fa-eye-slash' : ''),
           uri: uri,
@@ -1763,7 +1773,7 @@ ControllerRtlsdrRadio.prototype.showDabByEnsembleView = function() {
     navigation: {
       prev: { uri: 'rtlsdr://' },
       lists: [{
-        title: 'DAB Radio',
+        title: self.getI18nString('DAB_RADIO'),
         icon: 'fa fa-rss',
         availableListViews: ['list'],
         items: items
@@ -2125,7 +2135,7 @@ ControllerRtlsdrRadio.prototype.clearAddPlayTrack = function(track) {
       })
       .fail(function(e) {
         self.logger.error('[RTL-SDR Radio] FM playback failed: ' + e);
-        self.commandRouter.pushToastMessage('error', 'FM Radio', self.formatString(self.getI18nString('TOAST_PLAY_FAILED'), e));
+        self.commandRouter.pushToastMessage('error', self.getI18nString('FM_RADIO'), self.formatString(self.getI18nString('TOAST_PLAY_FAILED'), e));
         defer.reject(e);
       });
   } else if (track.uri && track.uri.indexOf('rtlsdr://dab/') === 0) {
@@ -2146,7 +2156,7 @@ ControllerRtlsdrRadio.prototype.clearAddPlayTrack = function(track) {
       })
       .fail(function(e) {
         self.logger.error('[RTL-SDR Radio] DAB playback failed: ' + e);
-        self.commandRouter.pushToastMessage('error', 'DAB Radio', self.formatString(self.getI18nString('TOAST_PLAY_FAILED'), e));
+        self.commandRouter.pushToastMessage('error', self.getI18nString('DAB_RADIO'), self.formatString(self.getI18nString('TOAST_PLAY_FAILED'), e));
         defer.reject(e);
       });
   } else {
@@ -2257,7 +2267,7 @@ ControllerRtlsdrRadio.prototype.startFmPlayback = function(freq, stationName, de
     service: 'rtlsdr_radio',
     title: stationName,
     artist: 'FM ' + freq + ' MHz',
-    album: 'FM Radio',
+    album: self.getI18nString('FM_RADIO'),
     albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/fm.svg',
     uri: 'rtlsdr://fm/' + freq,
     trackType: 'fm',
@@ -2383,7 +2393,7 @@ ControllerRtlsdrRadio.prototype.testManualFm = function(data) {
   // Validate frequency
   var freq = parseFloat(frequency);
   if (isNaN(freq) || freq < 88 || freq > 108) {
-    self.commandRouter.pushToastMessage('error', 'FM Radio', 
+    self.commandRouter.pushToastMessage('error', self.getI18nString('FM_RADIO'), 
       self.getI18nString('TEST_FM_FAILED').replace('{0}', 'Invalid frequency. Enter 88.0 - 108.0 MHz'));
     defer.reject(new Error('Invalid frequency'));
     return defer.promise;
@@ -2399,12 +2409,12 @@ ControllerRtlsdrRadio.prototype.testManualFm = function(data) {
   // Play the station
   self.clearAddPlayTrack(track)
     .then(function() {
-      self.commandRouter.pushToastMessage('success', 'FM Radio', 
+      self.commandRouter.pushToastMessage('success', self.getI18nString('FM_RADIO'), 
         self.getI18nString('TESTING_FM').replace('{0}', freq));
       defer.resolve();
     })
     .fail(function(e) {
-      self.commandRouter.pushToastMessage('error', 'FM Radio', 
+      self.commandRouter.pushToastMessage('error', self.getI18nString('FM_RADIO'), 
         self.getI18nString('TEST_FM_FAILED').replace('{0}', e.message || e));
       defer.reject(e);
     });
@@ -2425,14 +2435,14 @@ ControllerRtlsdrRadio.prototype.testManualDab = function(data) {
   
   // Validate inputs
   if (!ensemble || ensemble.trim() === '') {
-    self.commandRouter.pushToastMessage('error', 'DAB Radio', 
+    self.commandRouter.pushToastMessage('error', self.getI18nString('DAB_RADIO'), 
       self.getI18nString('TEST_DAB_FAILED').replace('{0}', 'Ensemble required'));
     defer.reject(new Error('Ensemble required'));
     return defer.promise;
   }
   
   if (!serviceName || serviceName.trim() === '') {
-    self.commandRouter.pushToastMessage('error', 'DAB Radio', 
+    self.commandRouter.pushToastMessage('error', self.getI18nString('DAB_RADIO'), 
       self.getI18nString('TEST_DAB_FAILED').replace('{0}', 'Service name required'));
     defer.reject(new Error('Service name required'));
     return defer.promise;
@@ -2454,7 +2464,7 @@ ControllerRtlsdrRadio.prototype.testManualDab = function(data) {
   // Play the station
   self.clearAddPlayTrack(track)
     .then(function() {
-      self.commandRouter.pushToastMessage('success', 'DAB Radio', 
+      self.commandRouter.pushToastMessage('success', self.getI18nString('DAB_RADIO'), 
         self.getI18nString('TESTING_DAB').replace('{0}', serviceName));
       
       // Restore original gain after 3 seconds
@@ -2469,7 +2479,7 @@ ControllerRtlsdrRadio.prototype.testManualDab = function(data) {
       // Restore original gain on failure
       self.config.set('dab_gain', originalGain);
       
-      self.commandRouter.pushToastMessage('error', 'DAB Radio', 
+      self.commandRouter.pushToastMessage('error', self.getI18nString('DAB_RADIO'), 
         self.getI18nString('TEST_DAB_FAILED').replace('{0}', e.message || e));
       defer.reject(e);
     });
@@ -2644,7 +2654,7 @@ ControllerRtlsdrRadio.prototype.createBuiltinGroups = function() {
   return {
     favorites: {
       id: 'favorites',
-      name: 'Favorites',
+      name: self.getI18nString('FAVORITES'),
       icon: 'fa fa-star',
       order: 0,
       builtin: true,
@@ -2653,7 +2663,7 @@ ControllerRtlsdrRadio.prototype.createBuiltinGroups = function() {
     },
     recent: {
       id: 'recent',
-      name: 'Recently Played',
+      name: self.getI18nString('RECENTLY_PLAYED'),
       icon: 'fa fa-history',
       order: 1,
       builtin: true,
@@ -3238,7 +3248,7 @@ ControllerRtlsdrRadio.prototype.mergeFmScanResults = function(newStations) {
                   mergedStations.length + ' total, ' + reappearedCount + ' reappeared');
   
   if (reappearedCount > 0) {
-    self.commandRouter.pushToastMessage('info', 'FM Radio', 
+    self.commandRouter.pushToastMessage('info', self.getI18nString('FM_RADIO'), 
       self.formatString(self.getI18nString('TOAST_FM_REAPPEARED'), reappearedCount));
   }
   
@@ -3312,7 +3322,7 @@ ControllerRtlsdrRadio.prototype.mergeDabScanResults = function(newStations) {
                   mergedStations.length + ' total, ' + reappearedCount + ' reappeared');
   
   if (reappearedCount > 0) {
-    self.commandRouter.pushToastMessage('info', 'DAB Radio', 
+    self.commandRouter.pushToastMessage('info', self.getI18nString('DAB_RADIO'), 
       self.formatString(self.getI18nString('TOAST_DAB_REAPPEARED'), reappearedCount));
   }
   
@@ -3904,7 +3914,7 @@ ControllerRtlsdrRadio.prototype.startDabPlayback = function(channel, serviceName
     status: 'play',
     service: 'rtlsdr_radio',
     title: stationTitle,
-    artist: 'DAB Radio',
+    artist: self.getI18nString('DAB_RADIO'),
     album: 'Channel ' + channel,
     albumart: '/albumart?sourceicon=music_service/rtlsdr_radio/assets/dab.svg',
     uri: 'rtlsdr://dab/' + channel + '/' + encodeURIComponent(serviceName),
