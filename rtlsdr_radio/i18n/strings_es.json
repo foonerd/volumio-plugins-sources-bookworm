@@ -39,6 +39,7 @@
   "OPEN_CURRENT_WINDOW_DOC": "Abre el gestor de emisoras en iframe dentro de Volumio",
   "OPEN_NEW_TAB": "Abrir en nueva pestaña",
   "OPEN_NEW_TAB_DOC": "Abre el gestor de emisoras en nueva pestaña del navegador",
+  "SAVE_WEB_MANAGEMENT": "Guardar ajustes",
   
   "SHOW_MANAGEMENT_CONFIG": "Mostrar configuración",
   "SHOW_MANAGEMENT_CONFIG_DOC": "Activar/desactivar para mostrar configuración avanzada del gestor",

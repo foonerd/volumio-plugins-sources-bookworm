@@ -552,441 +552,143 @@ ControllerRtlsdrRadio.prototype.getUIConfig = function() {
   var self = this;
   var defer = libQ.defer();
   
-  // Build UI configuration dynamically with proper i18n
-  var uiconf = {
-    page: {
-      label: self.getI18nString('PLUGIN_NAME')
-    },
-    sections: []
+  var lang_code = self.commandRouter.sharedVars.get('language_code') || 'en';
+  
+  self.commandRouter.i18nJson(
+    __dirname + '/i18n/strings_' + lang_code + '.json',
+    __dirname + '/i18n/strings_en.json',
+    __dirname + '/UIConfig.json'
+  )
+  .then(function(uiconf) {
+    // Populate dynamic values into the translated UI config
+    self.populateUIConfig(uiconf);
+    defer.resolve(uiconf);
+  })
+  .fail(function(e) {
+    self.logger.error('[RTL-SDR Radio] Failed to load UI config: ' + e);
+    defer.reject(e);
+  });
+  
+  return defer.promise;
+};
+
+ControllerRtlsdrRadio.prototype.populateUIConfig = function(uiconf) {
+  var self = this;
+  
+  // Helper function to find content item by id in a section
+  var findContentItem = function(section, itemId) {
+    if (!section.content) return null;
+    for (var i = 0; i < section.content.length; i++) {
+      if (section.content[i].id === itemId) {
+        return section.content[i];
+      }
+    }
+    return null;
   };
   
   // SECTION 1: WEB STATION MANAGEMENT
   // ==================================
-  var webManagementSection = {
-    id: 'web_management',
-    element: 'section',
-    label: self.getI18nString('SECTION_WEB_MANAGEMENT'),
-    icon: 'fa-edit',
-    content: [
-      {
-        id: 'show_web_management',
-        element: 'switch',
-        label: self.getI18nString('SHOW_WEB_MANAGEMENT'),
-        value: self.config.get('show_web_management', true),
-        doc: self.getI18nString('SHOW_WEB_MANAGEMENT_DOC')
-      },
-      {
-        id: 'open_current_button',
-        element: 'button',
-        label: self.getI18nString('OPEN_CURRENT_WINDOW'),
-        onClick: {
-          type: 'openUrl',
-          url: '/iframe-page/' + self.getManagementUrl().replace(/\//g, '~2F')
-        },
-        doc: self.getI18nString('OPEN_CURRENT_WINDOW_DOC'),
-        visibleIf: {
-          field: 'show_web_management',
-          value: true
-        }
-      },
-      {
-        id: 'open_tab_button',
-        element: 'button',
-        label: self.getI18nString('OPEN_NEW_TAB'),
-        onClick: {
-          type: 'openUrl',
-          url: self.getManagementUrl()
-        },
-        doc: self.getI18nString('OPEN_NEW_TAB_DOC'),
-        visibleIf: {
-          field: 'show_web_management',
-          value: true
-        }
-      }
-    ],
-    onSave: {
-      type: 'controller',
-      endpoint: 'music_service/rtlsdr_radio',
-      method: 'saveWebManagementToggle'
-    },
-    saveButton: {
-      label: self.getI18nString('SAVE_SUCCESS'),
-      data: ['show_web_management']
+  var webManagementSection = uiconf.sections[0];
+  if (webManagementSection) {
+    var showWebMgmt = findContentItem(webManagementSection, 'show_web_management');
+    if (showWebMgmt) {
+      showWebMgmt.value = self.config.get('show_web_management', true);
     }
-  };
-  uiconf.sections.push(webManagementSection);
+    
+    var openCurrentBtn = findContentItem(webManagementSection, 'open_current_button');
+    if (openCurrentBtn && openCurrentBtn.onClick) {
+      openCurrentBtn.onClick.url = '/iframe-page/' + self.getManagementUrl().replace(/\//g, '~2F');
+    }
+    
+    var openTabBtn = findContentItem(webManagementSection, 'open_tab_button');
+    if (openTabBtn && openTabBtn.onClick) {
+      openTabBtn.onClick.url = self.getManagementUrl();
+    }
+  }
   
   // SECTION 2: WEB STATION MANAGEMENT CONFIGURATION
   // ================================================
-  var managementConfigSection = {
-    id: 'management_config',
-    element: 'section',
-    label: self.getI18nString('SECTION_WEB_MANAGEMENT_CONFIG'),
-    icon: 'fa-cog',
-    content: [
-      {
-        id: 'show_management_config',
-        element: 'switch',
-        label: self.getI18nString('SHOW_MANAGEMENT_CONFIG'),
-        value: self.config.get('show_management_config', false),
-        doc: self.getI18nString('SHOW_MANAGEMENT_CONFIG_DOC')
-      },
-      {
-        id: 'hostname_override',
-        element: 'input',
-        label: self.getI18nString('HOSTNAME_OVERRIDE'),
-        value: self.config.get('hostname_override', ''),
-        doc: self.getI18nString('HOSTNAME_OVERRIDE_DOC'),
-        visibleIf: {
-          field: 'show_management_config',
-          value: true
-        }
-      }
-      /* DISABLED: Awaiting Volumio core support for dynamic menu items
-      ,{
-        id: 'management_url',
-        element: 'message',
-        label: self.getI18nString('MANAGER_URL_LABEL'),
-        value: self.getManagementUrl(),
-        visibleIf: {
-          field: 'show_management_config',
-          value: true
-        }
-      },
-      {
-        id: 'enable_menu_item',
-        element: 'switch',
-        label: self.getI18nString('ENABLE_MENU_ITEM'),
-        value: self.config.get('manager_menu_item_enabled', false),
-        doc: self.getI18nString('ENABLE_MENU_ITEM_DOC'),
-        visibleIf: {
-          field: 'show_management_config',
-          value: true
-        }
-      }
-      */
-    ],
-    onSave: {
-      type: 'controller',
-      endpoint: 'music_service/rtlsdr_radio',
-      method: 'saveWebManagerSettings'
-    },
-    saveButton: {
-      label: self.getI18nString('SAVE_MANAGEMENT_CONFIG'),
-      data: ['show_management_config', 'hostname_override' /*, 'enable_menu_item' */]
+  var managementConfigSection = uiconf.sections[1];
+  if (managementConfigSection) {
+    var showMgmtConfig = findContentItem(managementConfigSection, 'show_management_config');
+    if (showMgmtConfig) {
+      showMgmtConfig.value = self.config.get('show_management_config', false);
     }
-  };
-  uiconf.sections.push(managementConfigSection);
+    
+    var hostnameOverride = findContentItem(managementConfigSection, 'hostname_override');
+    if (hostnameOverride) {
+      hostnameOverride.value = self.config.get('hostname_override', '');
+    }
+  }
   
   // SECTION 3: FM RADIO
   // ====================
-  var fmSection = {
-    id: 'fm_radio',
-    element: 'section',
-    label: self.getI18nString('SECTION_FM_RADIO'),
-    icon: 'fa-signal',
-    onSave: {
-      type: 'controller',
-      endpoint: 'music_service/rtlsdr_radio',
-      method: 'saveFmSettings'
-    },
-    saveButton: {
-      label: self.getI18nString('SAVE_FM_SETTINGS'),
-      data: ['fm_enabled', 'fm_gain', 'scan_sensitivity']
-    },
-    content: [
-      {
-        id: 'fm_enabled',
-        element: 'switch',
-        label: self.getI18nString('ENABLE_FM'),
-        value: self.config.get('fm_enabled', false),
-        doc: self.getI18nString('ENABLE_FM_DOC')
-      },
-      {
-        id: 'fm_gain',
-        element: 'input',
-        label: self.getI18nString('FM_GAIN'),
-        value: self.config.get('fm_gain', 50),
-        doc: self.getI18nString('FM_GAIN_DOC'),
-        visibleIf: {
-          field: 'fm_enabled',
-          value: true
-        }
-      },
-      {
-        id: 'scan_sensitivity',
-        element: 'select',
-        label: self.getI18nString('SCAN_SENSITIVITY'),
-        value: {
-          value: self.config.get('scan_sensitivity', 8),
-          label: self.getSensitivityLabel(self.config.get('scan_sensitivity', 8))
-        },
-        options: [
-          {
-            value: 15,
-            label: self.getI18nString('SENSITIVITY_CONSERVATIVE')
-          },
-          {
-            value: 10,
-            label: self.getI18nString('SENSITIVITY_MODERATE')
-          },
-          {
-            value: 8,
-            label: self.getI18nString('SENSITIVITY_BALANCED')
-          },
-          {
-            value: 5,
-            label: self.getI18nString('SENSITIVITY_SENSITIVE')
-          },
-          {
-            value: 3,
-            label: self.getI18nString('SENSITIVITY_VERY_SENSITIVE')
-          }
-        ],
-        doc: self.getI18nString('SCAN_SENSITIVITY_DOC'),
-        visibleIf: {
-          field: 'fm_enabled',
-          value: true
-        }
-      },
-      {
-        id: 'scan_fm',
-        element: 'button',
-        label: self.getI18nString('SCAN_FM'),
-        onClick: {
-          type: 'controller',
-          endpoint: 'music_service/rtlsdr_radio',
-          method: 'scanFm'
-        },
-        doc: self.getI18nString('SCAN_FM_DOC'),
-        visibleIf: {
-          field: 'fm_enabled',
-          value: true
-        }
-      }
-    ]
-  };
-  uiconf.sections.push(fmSection);
+  var fmSection = uiconf.sections[2];
+  if (fmSection) {
+    var fmEnabled = findContentItem(fmSection, 'fm_enabled');
+    if (fmEnabled) {
+      fmEnabled.value = self.config.get('fm_enabled', false);
+    }
+    
+    var fmGain = findContentItem(fmSection, 'fm_gain');
+    if (fmGain) {
+      fmGain.value = self.config.get('fm_gain', 50);
+    }
+    
+    var scanSensitivity = findContentItem(fmSection, 'scan_sensitivity');
+    if (scanSensitivity) {
+      var sensitivityValue = self.config.get('scan_sensitivity', 8);
+      scanSensitivity.value = {
+        value: sensitivityValue,
+        label: self.getSensitivityLabel(sensitivityValue)
+      };
+    }
+  }
   
   // SECTION 4: DAB/DAB+ RADIO
   // ==========================
-  var dabSection = {
-    id: 'dab_radio',
-    element: 'section',
-    label: self.getI18nString('SECTION_DAB_RADIO'),
-    icon: 'fa-rss',
-    onSave: {
-      type: 'controller',
-      endpoint: 'music_service/rtlsdr_radio',
-      method: 'saveDabSettings'
-    },
-    saveButton: {
-      label: self.getI18nString('SAVE_DAB_SETTINGS'),
-      data: ['dab_enabled', 'dab_gain']
-    },
-    content: [
-      {
-        id: 'dab_enabled',
-        element: 'switch',
-        label: self.getI18nString('ENABLE_DAB'),
-        value: self.config.get('dab_enabled', false),
-        doc: self.getI18nString('ENABLE_DAB_DOC')
-      },
-      {
-        id: 'dab_gain',
-        element: 'input',
-        label: self.getI18nString('DAB_GAIN'),
-        value: self.config.get('dab_gain', 80),
-        doc: self.getI18nString('DAB_GAIN_DOC'),
-        visibleIf: {
-          field: 'dab_enabled',
-          value: true
-        }
-      },
-      {
-        id: 'scan_dab',
-        element: 'button',
-        label: self.getI18nString('SCAN_DAB'),
-        onClick: {
-          type: 'controller',
-          endpoint: 'music_service/rtlsdr_radio',
-          method: 'scanDab'
-        },
-        doc: self.getI18nString('SCAN_DAB_DOC'),
-        visibleIf: {
-          field: 'dab_enabled',
-          value: true
-        }
-      }
-    ]
-  };
-  uiconf.sections.push(dabSection);
+  var dabSection = uiconf.sections[3];
+  if (dabSection) {
+    var dabEnabled = findContentItem(dabSection, 'dab_enabled');
+    if (dabEnabled) {
+      dabEnabled.value = self.config.get('dab_enabled', false);
+    }
+    
+    var dabGain = findContentItem(dabSection, 'dab_gain');
+    if (dabGain) {
+      dabGain.value = self.config.get('dab_gain', 80);
+    }
+  }
   
   // SECTION 5: DIAGNOSTICS
   // =======================
-  var diagnosticsSection = {
-    id: 'diagnostics',
-    element: 'section',
-    label: self.getI18nString('SECTION_DIAGNOSTICS'),
-    icon: 'fa-wrench',
-    content: [
-      {
-        id: 'show_diagnostics',
-        element: 'switch',
-        label: self.getI18nString('SHOW_DIAGNOSTICS'),
-        value: self.config.get('show_diagnostics', false),
-        doc: self.getI18nString('SHOW_DIAGNOSTICS_DOC')
-      },
-      {
-        id: 'diagnostics_purpose',
-        element: 'section',
-        description: self.getI18nString('DIAGNOSTICS_PURPOSE'),
-        visibleIf: {
-          field: 'show_diagnostics',
-          value: true
-        }
-      },
-      {
-        id: 'manual_fm_divider',
-        element: 'message',
-        label: self.getI18nString('MANUAL_FM_LABEL'),
-        value: '',
-        visibleIf: {
-          field: 'show_diagnostics',
-          value: true
-        }
-      },
-      {
-        id: 'manual_fm_frequency',
-        element: 'input',
-        label: self.getI18nString('MANUAL_FM_FREQUENCY'),
-        value: self.config.get('manual_fm_frequency', '94.9'),
-        doc: self.getI18nString('MANUAL_FM_FREQUENCY_DOC'),
-        visibleIf: {
-          field: 'show_diagnostics',
-          value: true
-        }
-      },
-      {
-        id: 'test_fm_save_required',
-        element: 'section',
-        description: self.getI18nString('TEST_FM_SAVE_REQUIRED'),
-        visibleIf: {
-          field: 'show_diagnostics',
-          value: true
-        }
-      },
-      {
-        id: 'test_fm_button',
-        element: 'button',
-        label: self.getI18nString('TEST_FM_STATION'),
-        onClick: {
-          type: 'emit',
-          message: 'callMethod',
-          data: {
-            endpoint: 'music_service/rtlsdr_radio',
-            method: 'testManualFm'
-          }
-        },
-        visibleIf: {
-          field: 'show_diagnostics',
-          value: true
-        }
-      },
-      {
-        id: 'manual_dab_divider',
-        element: 'message',
-        label: self.getI18nString('MANUAL_DAB_LABEL'),
-        value: '',
-        visibleIf: {
-          field: 'show_diagnostics',
-          value: true
-        }
-      },
-      {
-        id: 'manual_dab_ensemble',
-        element: 'input',
-        label: self.getI18nString('MANUAL_DAB_ENSEMBLE'),
-        value: self.config.get('manual_dab_ensemble', '12B'),
-        doc: self.getI18nString('MANUAL_DAB_ENSEMBLE_DOC'),
-        visibleIf: {
-          field: 'show_diagnostics',
-          value: true
-        }
-      },
-      {
-        id: 'manual_dab_service',
-        element: 'input',
-        label: self.getI18nString('MANUAL_DAB_SERVICE'),
-        value: self.config.get('manual_dab_service', 'BBC Radio1'),
-        doc: self.getI18nString('MANUAL_DAB_SERVICE_DOC'),
-        visibleIf: {
-          field: 'show_diagnostics',
-          value: true
-        }
-      },
-      {
-        id: 'manual_dab_gain',
-        element: 'input',
-        label: self.getI18nString('MANUAL_DAB_GAIN'),
-        value: self.config.get('manual_dab_gain', 20),
-        doc: self.getI18nString('MANUAL_DAB_GAIN_DOC'),
-        visibleIf: {
-          field: 'show_diagnostics',
-          value: true
-        }
-      },
-      {
-        id: 'test_dab_save_required',
-        element: 'section',
-        description: self.getI18nString('TEST_DAB_SAVE_REQUIRED'),
-        visibleIf: {
-          field: 'show_diagnostics',
-          value: true
-        }
-      },
-      {
-        id: 'test_dab_button',
-        element: 'button',
-        label: self.getI18nString('TEST_DAB_STATION'),
-        onClick: {
-          type: 'emit',
-          message: 'callMethod',
-          data: {
-            endpoint: 'music_service/rtlsdr_radio',
-            method: 'testManualDab'
-          }
-        },
-        visibleIf: {
-          field: 'show_diagnostics',
-          value: true
-        }
-      },
-      {
-        id: 'diagnostics_save_explanation',
-        element: 'section',
-        description: self.getI18nString('DIAGNOSTICS_SAVE_EXPLANATION'),
-        visibleIf: {
-          field: 'show_diagnostics',
-          value: true
-        }
-      }
-    ],
-    onSave: {
-      type: 'controller',
-      endpoint: 'music_service/rtlsdr_radio',
-      method: 'saveDiagnosticsSettings'
-    },
-    saveButton: {
-      label: self.getI18nString('DIAGNOSTICS_SAVE_BUTTON'),
-      data: ['show_diagnostics', 'manual_fm_frequency', 'manual_dab_ensemble', 'manual_dab_service', 'manual_dab_gain']
+  var diagnosticsSection = uiconf.sections[4];
+  if (diagnosticsSection) {
+    var showDiagnostics = findContentItem(diagnosticsSection, 'show_diagnostics');
+    if (showDiagnostics) {
+      showDiagnostics.value = self.config.get('show_diagnostics', false);
     }
-  };
-  uiconf.sections.push(diagnosticsSection);
-  
-  defer.resolve(uiconf);
-  
-  return defer.promise;
+    
+    var manualFmFreq = findContentItem(diagnosticsSection, 'manual_fm_frequency');
+    if (manualFmFreq) {
+      manualFmFreq.value = self.config.get('manual_fm_frequency', '94.9');
+    }
+    
+    var manualDabEnsemble = findContentItem(diagnosticsSection, 'manual_dab_ensemble');
+    if (manualDabEnsemble) {
+      manualDabEnsemble.value = self.config.get('manual_dab_ensemble', '12B');
+    }
+    
+    var manualDabService = findContentItem(diagnosticsSection, 'manual_dab_service');
+    if (manualDabService) {
+      manualDabService.value = self.config.get('manual_dab_service', 'BBC Radio1');
+    }
+    
+    var manualDabGain = findContentItem(diagnosticsSection, 'manual_dab_gain');
+    if (manualDabGain) {
+      manualDabGain.value = self.config.get('manual_dab_gain', 20);
+    }
+  }
 };
 
 ControllerRtlsdrRadio.prototype.getSensitivityLabel = function(value) {

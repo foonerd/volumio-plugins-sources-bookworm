@@ -39,6 +39,7 @@
   "OPEN_CURRENT_WINDOW_DOC": "Otwiera menedżera stacji w iframe wewnątrz Volumio",
   "OPEN_NEW_TAB": "Otwórz w nowej karcie",
   "OPEN_NEW_TAB_DOC": "Otwiera menedżera stacji w nowej karcie przeglądarki",
+  "SAVE_WEB_MANAGEMENT": "Zapisz ustawienia",
   
   "SHOW_MANAGEMENT_CONFIG": "Pokaż konfigurację",
   "SHOW_MANAGEMENT_CONFIG_DOC": "Przełącz, aby pokazać zaawansowaną konfigurację menedżera",

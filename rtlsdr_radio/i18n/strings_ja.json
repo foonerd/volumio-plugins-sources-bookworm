@@ -39,6 +39,7 @@
   "OPEN_CURRENT_WINDOW_DOC": "Volumio 内の iframe で局マネージャーを開きます",
   "OPEN_NEW_TAB": "新しいタブで開く",
   "OPEN_NEW_TAB_DOC": "新しいブラウザタブで局マネージャーを開きます",
+  "SAVE_WEB_MANAGEMENT": "設定を保存",
   
   "SHOW_MANAGEMENT_CONFIG": "設定を表示",
   "SHOW_MANAGEMENT_CONFIG_DOC": "高度なマネージャー設定を表示",

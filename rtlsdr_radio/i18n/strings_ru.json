@@ -39,6 +39,7 @@
   "OPEN_CURRENT_WINDOW_DOC": "Открывает менеджер станций в iframe внутри Volumio",
   "OPEN_NEW_TAB": "Открыть в новой вкладке",
   "OPEN_NEW_TAB_DOC": "Открывает менеджер станций в новой вкладке браузера",
+  "SAVE_WEB_MANAGEMENT": "Сохранить настройки",
   
   "SHOW_MANAGEMENT_CONFIG": "Показать конфигурацию",
   "SHOW_MANAGEMENT_CONFIG_DOC": "Переключить для отображения расширенной конфигурации менеджера",

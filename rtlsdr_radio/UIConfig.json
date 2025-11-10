@@ -1,12 +1,12 @@
 {
   "page": {
-    "label": "FM/DAB Radio Configuration"
+    "label": "TRANSLATE.PLUGIN_NAME"
   },
   "sections": [
     {
       "id": "web_management",
       "element": "section",
-      "label": "Radio Station Management",
+      "label": "TRANSLATE.SECTION_WEB_MANAGEMENT",
       "icon": "fa-edit",
       "onSave": {
         "type": "controller",
@@ -14,7 +14,7 @@
         "method": "saveWebManagementToggle"
       },
       "saveButton": {
-        "label": "Save",
+        "label": "TRANSLATE.SAVE_WEB_MANAGEMENT",
         "data": [
           "show_web_management"
         ]
@@ -23,19 +23,19 @@
         {
           "id": "show_web_management",
           "element": "switch",
-          "label": "Show Station Management",
+          "label": "TRANSLATE.SHOW_WEB_MANAGEMENT",
           "value": true,
-          "doc": "Toggle to show station manager access options"
+          "doc": "TRANSLATE.SHOW_WEB_MANAGEMENT_DOC"
         },
         {
           "id": "open_current_button",
           "element": "button",
-          "label": "Open in Current Window",
+          "label": "TRANSLATE.OPEN_CURRENT_WINDOW",
           "onClick": {
             "type": "openUrl",
-            "url": "/iframe-page/http:~2F~2Flocalhost:3456"
+            "url": ""
           },
-          "doc": "Opens station manager in iframe within Volumio",
+          "doc": "TRANSLATE.OPEN_CURRENT_WINDOW_DOC",
           "visibleIf": {
             "field": "show_web_management",
             "value": true
@@ -44,12 +44,12 @@
         {
           "id": "open_tab_button",
           "element": "button",
-          "label": "Open in New Tab",
+          "label": "TRANSLATE.OPEN_NEW_TAB",
           "onClick": {
             "type": "openUrl",
-            "url": "http://localhost:3456"
+            "url": ""
           },
-          "doc": "Opens station manager in new browser tab",
+          "doc": "TRANSLATE.OPEN_NEW_TAB_DOC",
           "visibleIf": {
             "field": "show_web_management",
             "value": true
@@ -60,7 +60,7 @@
     {
       "id": "management_config",
       "element": "section",
-      "label": "Radio Station Management Configuration",
+      "label": "TRANSLATE.SECTION_WEB_MANAGEMENT_CONFIG",
       "icon": "fa-cog",
       "onSave": {
         "type": "controller",
@@ -68,7 +68,7 @@
         "method": "saveWebManagerSettings"
       },
       "saveButton": {
-        "label": "Save Configuration",
+        "label": "TRANSLATE.SAVE_MANAGEMENT_CONFIG",
         "data": [
           "show_management_config",
           "hostname_override"
@@ -78,16 +78,16 @@
         {
           "id": "show_management_config",
           "element": "switch",
-          "label": "Show Configuration",
+          "label": "TRANSLATE.SHOW_MANAGEMENT_CONFIG",
           "value": false,
-          "doc": "Toggle to show advanced manager configuration"
+          "doc": "TRANSLATE.SHOW_MANAGEMENT_CONFIG_DOC"
         },
         {
           "id": "hostname_override",
           "element": "input",
-          "label": "Hostname/IP Override (Optional)",
+          "label": "TRANSLATE.HOSTNAME_OVERRIDE",
           "value": "",
-          "doc": "Leave blank to use MDNS hostname. Enter your IP address (e.g. 192.168.30.208) if MDNS is unavailable",
+          "doc": "TRANSLATE.HOSTNAME_OVERRIDE_DOC",
           "visibleIf": {
             "field": "show_management_config",
             "value": true
@@ -98,7 +98,7 @@
     {
       "id": "fm_radio",
       "element": "section",
-      "label": "FM Radio",
+      "label": "TRANSLATE.SECTION_FM_RADIO",
       "icon": "fa-signal",
       "onSave": {
         "type": "controller",
@@ -106,7 +106,7 @@
         "method": "saveFmSettings"
       },
       "saveButton": {
-        "label": "Save FM Settings",
+        "label": "TRANSLATE.SAVE_FM_SETTINGS",
         "data": [
           "fm_enabled",
           "fm_gain",
@@ -117,16 +117,16 @@
         {
           "id": "fm_enabled",
           "element": "switch",
-          "label": "Show FM Radio Configuration",
+          "label": "TRANSLATE.ENABLE_FM",
           "value": false,
-          "doc": "Toggle to show FM radio settings"
+          "doc": "TRANSLATE.ENABLE_FM_DOC"
         },
         {
           "id": "fm_gain",
           "element": "input",
-          "label": "FM Gain",
+          "label": "TRANSLATE.FM_GAIN",
           "value": 50,
-          "doc": "RTL-SDR gain for FM reception (0-100)",
+          "doc": "TRANSLATE.FM_GAIN_DOC",
           "visibleIf": {
             "field": "fm_enabled",
             "value": true
@@ -135,34 +135,34 @@
         {
           "id": "scan_sensitivity",
           "element": "select",
-          "label": "FM Scan Sensitivity",
+          "label": "TRANSLATE.SCAN_SENSITIVITY",
           "value": {
             "value": 8,
-            "label": "Balanced (+8 dB) - Good signals (recommended)"
+            "label": ""
           },
           "options": [
             {
               "value": 15,
-              "label": "Conservative (+15 dB) - Very strong signals only"
+              "label": "TRANSLATE.SENSITIVITY_CONSERVATIVE"
             },
             {
               "value": 10,
-              "label": "Moderate (+10 dB) - Strong signals"
+              "label": "TRANSLATE.SENSITIVITY_MODERATE"
             },
             {
               "value": 8,
-              "label": "Balanced (+8 dB) - Good signals (recommended)"
+              "label": "TRANSLATE.SENSITIVITY_BALANCED"
             },
             {
               "value": 5,
-              "label": "Sensitive (+5 dB) - All reasonable signals"
+              "label": "TRANSLATE.SENSITIVITY_SENSITIVE"
             },
             {
               "value": 3,
-              "label": "Very Sensitive (+3 dB) - Weaker signals, may include noise"
+              "label": "TRANSLATE.SENSITIVITY_VERY_SENSITIVE"
             }
           ],
-          "doc": "How sensitive the FM scanner should be when detecting stations. Higher values find only the strongest signals, lower values find more stations but may include noise.",
+          "doc": "TRANSLATE.SCAN_SENSITIVITY_DOC",
           "visibleIf": {
             "field": "fm_enabled",
             "value": true
@@ -171,13 +171,13 @@
         {
           "id": "scan_fm",
           "element": "button",
-          "label": "Scan FM Stations",
+          "label": "TRANSLATE.SCAN_FM",
           "onClick": {
             "type": "controller",
             "endpoint": "music_service/rtlsdr_radio",
             "method": "scanFm"
           },
-          "doc": "Scan for available FM radio stations",
+          "doc": "TRANSLATE.SCAN_FM_DOC",
           "visibleIf": {
             "field": "fm_enabled",
             "value": true
@@ -188,7 +188,7 @@
     {
       "id": "dab_radio",
       "element": "section",
-      "label": "DAB/DAB+ Radio",
+      "label": "TRANSLATE.SECTION_DAB_RADIO",
       "icon": "fa-rss",
       "onSave": {
         "type": "controller",
@@ -196,7 +196,7 @@
         "method": "saveDabSettings"
       },
       "saveButton": {
-        "label": "Save DAB Settings",
+        "label": "TRANSLATE.SAVE_DAB_SETTINGS",
         "data": [
           "dab_enabled",
           "dab_gain"
@@ -206,16 +206,16 @@
         {
           "id": "dab_enabled",
           "element": "switch",
-          "label": "Show DAB/DAB+ Radio Configuration",
+          "label": "TRANSLATE.ENABLE_DAB",
           "value": false,
-          "doc": "Toggle to show DAB and DAB+ radio settings"
+          "doc": "TRANSLATE.ENABLE_DAB_DOC"
         },
         {
           "id": "dab_gain",
           "element": "input",
-          "label": "DAB Gain",
+          "label": "TRANSLATE.DAB_GAIN",
           "value": 80,
-          "doc": "RTL-SDR gain for DAB reception (0-100)",
+          "doc": "TRANSLATE.DAB_GAIN_DOC",
           "visibleIf": {
             "field": "dab_enabled",
             "value": true
@@ -224,13 +224,13 @@
         {
           "id": "scan_dab",
           "element": "button",
-          "label": "Scan DAB Stations",
+          "label": "TRANSLATE.SCAN_DAB",
           "onClick": {
             "type": "controller",
             "endpoint": "music_service/rtlsdr_radio",
             "method": "scanDab"
           },
-          "doc": "Scan for available DAB/DAB+ stations (may take 2-3 minutes)",
+          "doc": "TRANSLATE.SCAN_DAB_DOC",
           "visibleIf": {
             "field": "dab_enabled",
             "value": true
@@ -241,7 +241,7 @@
     {
       "id": "diagnostics",
       "element": "section",
-      "label": "Diagnostics",
+      "label": "TRANSLATE.SECTION_DIAGNOSTICS",
       "icon": "fa-wrench",
       "onSave": {
         "type": "controller",
@@ -249,7 +249,7 @@
         "method": "saveDiagnosticsSettings"
       },
       "saveButton": {
-        "label": "Save",
+        "label": "TRANSLATE.DIAGNOSTICS_SAVE_BUTTON",
         "data": [
           "show_diagnostics",
           "manual_fm_frequency",
@@ -262,14 +262,14 @@
         {
           "id": "show_diagnostics",
           "element": "switch",
-          "label": "Show Diagnostics",
+          "label": "TRANSLATE.SHOW_DIAGNOSTICS",
           "value": false,
-          "doc": "Toggle to show manual testing tools for different USB dongles"
+          "doc": "TRANSLATE.SHOW_DIAGNOSTICS_DOC"
         },
         {
           "id": "diagnostics_purpose",
           "element": "section",
-          "description": "These tools test if your USB dongle can receive specific frequencies. Use this when: stations won't play, signal is weak, or testing a new dongle. Enter a known strong station, save settings, click test - you should hear audio. If no audio or distorted, adjust gain: lower if crackling (NESDR Smart: try 20), higher if silent (basic RTL-SDR: try 80). Test confirms your dongle works before scanning for all stations.",
+          "description": "TRANSLATE.DIAGNOSTICS_PURPOSE",
           "visibleIf": {
             "field": "show_diagnostics",
             "value": true
@@ -278,7 +278,7 @@
         {
           "id": "manual_fm_divider",
           "element": "message",
-          "label": "Manual FM Test",
+          "label": "TRANSLATE.MANUAL_FM_LABEL",
           "value": "",
           "visibleIf": {
             "field": "show_diagnostics",
@@ -288,9 +288,9 @@
         {
           "id": "manual_fm_frequency",
           "element": "input",
-          "label": "FM Frequency (MHz)",
+          "label": "TRANSLATE.MANUAL_FM_FREQUENCY",
           "value": "94.9",
-          "doc": "FM frequency in MHz (88.0-108.0). Example: 94.9 for BBC Radio London, 95.8 for Capital FM. Use a strong local station for testing.",
+          "doc": "TRANSLATE.MANUAL_FM_FREQUENCY_DOC",
           "visibleIf": {
             "field": "show_diagnostics",
             "value": true
@@ -299,7 +299,7 @@
         {
           "id": "test_fm_save_required",
           "element": "section",
-          "description": "Required: Test uses saved values. Save settings first to test current frequency.",
+          "description": "TRANSLATE.TEST_FM_SAVE_REQUIRED",
           "visibleIf": {
             "field": "show_diagnostics",
             "value": true
@@ -308,7 +308,7 @@
         {
           "id": "test_fm_button",
           "element": "button",
-          "label": "Test FM Station",
+          "label": "TRANSLATE.TEST_FM_STATION",
           "onClick": {
             "type": "emit",
             "message": "callMethod",
@@ -325,7 +325,7 @@
         {
           "id": "manual_dab_divider",
           "element": "message",
-          "label": "Manual DAB Test",
+          "label": "TRANSLATE.MANUAL_DAB_LABEL",
           "value": "",
           "visibleIf": {
             "field": "show_diagnostics",
@@ -335,9 +335,9 @@
         {
           "id": "manual_dab_ensemble",
           "element": "input",
-          "label": "Ensemble",
+          "label": "TRANSLATE.MANUAL_DAB_ENSEMBLE",
           "value": "12B",
-          "doc": "Ensemble ID that broadcasts the service (e.g., 12B for BBC Radio1 in UK). Use DAB scan to discover ensembles in your location.",
+          "doc": "TRANSLATE.MANUAL_DAB_ENSEMBLE_DOC",
           "visibleIf": {
             "field": "show_diagnostics",
             "value": true
@@ -346,9 +346,9 @@
         {
           "id": "manual_dab_service",
           "element": "input",
-          "label": "Service Name",
+          "label": "TRANSLATE.MANUAL_DAB_SERVICE",
           "value": "BBC Radio1",
-          "doc": "Exact service name as broadcast (e.g., BBC Radio1 not BBC Radio 1). This is the technical identifier from the ensemble, which may differ from the station's display name.",
+          "doc": "TRANSLATE.MANUAL_DAB_SERVICE_DOC",
           "visibleIf": {
             "field": "show_diagnostics",
             "value": true
@@ -357,9 +357,9 @@
         {
           "id": "manual_dab_gain",
           "element": "input",
-          "label": "Test Gain",
+          "label": "TRANSLATE.MANUAL_DAB_GAIN",
           "value": 20,
-          "doc": "RTL-SDR RF amplifier gain (0-100). Affects signal-to-noise ratio and overload threshold, not volume. NESDR Smart dongles have better amplifiers: start at 20. Generic RTL-SDR needs higher gain: start at 80. Adjust if distorted (lower) or no signal (higher).",
+          "doc": "TRANSLATE.MANUAL_DAB_GAIN_DOC",
           "visibleIf": {
             "field": "show_diagnostics",
             "value": true
@@ -368,7 +368,7 @@
         {
           "id": "test_dab_save_required",
           "element": "section",
-          "description": "Required: Test uses saved values. Save settings first to test current station.",
+          "description": "TRANSLATE.TEST_DAB_SAVE_REQUIRED",
           "visibleIf": {
             "field": "show_diagnostics",
             "value": true
@@ -377,7 +377,7 @@
         {
           "id": "test_dab_button",
           "element": "button",
-          "label": "Test DAB Station",
+          "label": "TRANSLATE.TEST_DAB_STATION",
           "onClick": {
             "type": "emit",
             "message": "callMethod",
@@ -394,7 +394,7 @@
         {
           "id": "diagnostics_save_explanation",
           "element": "section",
-          "description": "Save test values for next time.",
+          "description": "TRANSLATE.DIAGNOSTICS_SAVE_EXPLANATION",
           "visibleIf": {
             "field": "show_diagnostics",
             "value": true

@@ -39,6 +39,7 @@
   "OPEN_CURRENT_WINDOW_DOC": "Opens station manager in iframe within Volumio",
   "OPEN_NEW_TAB": "Open in New Tab",
   "OPEN_NEW_TAB_DOC": "Opens station manager in new browser tab",
+  "SAVE_WEB_MANAGEMENT": "Save Settings",
   
   "SHOW_MANAGEMENT_CONFIG": "Show Configuration",
   "SHOW_MANAGEMENT_CONFIG_DOC": "Toggle to show advanced manager configuration",

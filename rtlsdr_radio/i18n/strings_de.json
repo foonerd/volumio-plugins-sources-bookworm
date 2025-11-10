@@ -39,6 +39,7 @@
   "OPEN_CURRENT_WINDOW_DOC": "Öffnet Senderverwaltung im Iframe innerhalb von Volumio",
   "OPEN_NEW_TAB": "In neuem Tab öffnen",
   "OPEN_NEW_TAB_DOC": "Öffnet Senderverwaltung in neuem Browser-Tab",
+  "SAVE_WEB_MANAGEMENT": "Einstellungen speichern",
   
   "SHOW_MANAGEMENT_CONFIG": "Konfiguration anzeigen",
   "SHOW_MANAGEMENT_CONFIG_DOC": "Erweiterte Verwaltungskonfiguration ein-/ausblenden",

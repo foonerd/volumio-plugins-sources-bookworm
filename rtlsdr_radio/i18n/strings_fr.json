@@ -39,6 +39,7 @@
   "OPEN_CURRENT_WINDOW_DOC": "Ouvre le gestionnaire de stations dans iframe au sein de Volumio",
   "OPEN_NEW_TAB": "Ouvrir dans un nouvel onglet",
   "OPEN_NEW_TAB_DOC": "Ouvre le gestionnaire de stations dans un nouvel onglet du navigateur",
+  "SAVE_WEB_MANAGEMENT": "Enregistrer les paramètres",
   
   "SHOW_MANAGEMENT_CONFIG": "Afficher la configuration",
   "SHOW_MANAGEMENT_CONFIG_DOC": "Basculer pour afficher la configuration avancée du gestionnaire",

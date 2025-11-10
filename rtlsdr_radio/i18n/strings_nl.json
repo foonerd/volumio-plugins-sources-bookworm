@@ -39,6 +39,7 @@
   "OPEN_CURRENT_WINDOW_DOC": "Opent stationbeheerder in iframe binnen Volumio",
   "OPEN_NEW_TAB": "Open in nieuw tabblad",
   "OPEN_NEW_TAB_DOC": "Opent stationbeheerder in nieuw browsertabblad",
+  "SAVE_WEB_MANAGEMENT": "Bewaar instellingen",
   
   "SHOW_MANAGEMENT_CONFIG": "Toon configuratie",
   "SHOW_MANAGEMENT_CONFIG_DOC": "Schakel om geavanceerde beheerdersconfiguratie te tonen",

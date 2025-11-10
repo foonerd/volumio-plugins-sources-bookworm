@@ -39,6 +39,7 @@
   "OPEN_CURRENT_WINDOW_DOC": "Abre o gestor de estações em iframe dentro do Volumio",
   "OPEN_NEW_TAB": "Abrir em novo separador",
   "OPEN_NEW_TAB_DOC": "Abre o gestor de estações em novo separador do navegador",
+  "SAVE_WEB_MANAGEMENT": "Guardar definições",
   
   "SHOW_MANAGEMENT_CONFIG": "Mostrar configuração",
   "SHOW_MANAGEMENT_CONFIG_DOC": "Alternar para mostrar configuração avançada do gestor",

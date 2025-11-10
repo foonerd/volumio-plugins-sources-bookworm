@@ -39,6 +39,7 @@
   "OPEN_CURRENT_WINDOW_DOC": "在 Volumio 内的 iframe 中打开电台管理器",
   "OPEN_NEW_TAB": "在新标签页打开",
   "OPEN_NEW_TAB_DOC": "在新浏览器标签页中打开电台管理器",
+  "SAVE_WEB_MANAGEMENT": "保存设置",
   
   "SHOW_MANAGEMENT_CONFIG": "显示配置",
   "SHOW_MANAGEMENT_CONFIG_DOC": "切换显示高级管理器配置",
