@@ -636,6 +636,20 @@ function configureEq15Section(self, uiconf, selectedsp) {
     onClick: { type: 'plugin', endpoint: 'audio_interface/fusiondsp', method: 'reseteq', data: [] },
     visibleIf: { field: 'showeq', value: true }
   });
+
+  uiconf.sections[1].content.push({
+    id: 'showpeqcurve',
+    element: 'button',
+    label: self.commandRouter.getI18nString('SHOW_PEQ_CURVE'),
+    doc: self.commandRouter.getI18nString('SHOW_PEQ_CURVE_DOC'),
+    onClick: {
+      type: 'plugin',
+      endpoint: 'audio_interface/fusiondsp',
+      method: 'showPeqGraph',
+      data: []
+    },
+    visibleIf: { field: 'showeq', value: true }
+  });
 }
 
 function configureEq3Section(self, uiconf) {
@@ -1454,6 +1468,25 @@ FusionDsp.prototype.startPeqGraphServer = function () {
         }
 
         self.config.set('mergedeq', newMergedeq);
+
+        // Sync geq15/x2geq15 config from updated mergedeq so UI sliders stay in sync
+        if (mode === 'EQ15' || mode === '2XEQ15') {
+          var updatedSlots = newMergedeq.split('|');
+          var lGains = [];
+          var rGains = [];
+          for (var si = 0; si + 3 < updatedSlots.length; si += 4) {
+            var scope = updatedSlots[si + 2];
+            var gain = updatedSlots[si + 3].split(',')[1] || '0';
+            if (scope === 'L+R' || scope === 'L') lGains.push(gain);
+            if (scope === 'R') rGains.push(gain);
+          }
+          if (mode === 'EQ15') {
+            self.config.set('geq15', lGains.join(','));
+          } else {
+            self.config.set('geq15', lGains.join(','));
+            self.config.set('x2geq15', rGains.join(','));
+          }
+        }
 
         setTimeout(function () {
           self.refreshUI();

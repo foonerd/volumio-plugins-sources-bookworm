@@ -2137,6 +2137,8 @@
           // Show/hide Add Filter button based on mode
           var isEQ15 = (currentMode === 'EQ15' || currentMode === '2XEQ15');
           btnAddFilter.style.display = isEQ15 ? 'none' : '';
+          btnSave.style.display = isEQ15 ? 'none' : '';
+          btnReset.style.display = isEQ15 ? 'none' : '';
           var responses = computeResponses(currentData);
           lastResponses = responses;
           updateLegend(responses);
