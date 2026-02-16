@@ -1307,11 +1307,15 @@ FusionDsp.prototype.startPeqGraphServer = function () {
             return;
           }
 
-          // Find matching slot by index number
+          // Find matching slot by index number (and matchScope for disambiguation in 2XEQ15)
           var slotIdx = -1;
+          var matchScope = upd.matchScope || null;
           for (var si = 0; si < slots.length; si++) {
             var m = slots[si].label.match(/\d+/);
-            if (m && parseInt(m[0]) === idx) { slotIdx = si; break; }
+            if (m && parseInt(m[0]) === idx) {
+              if (matchScope && slots[si].scope !== matchScope) continue;
+              slotIdx = si; break;
+            }
           }
           if (slotIdx === -1) {
             res.writeHead(400, corsHeaders);

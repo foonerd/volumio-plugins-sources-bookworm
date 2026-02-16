@@ -1674,7 +1674,7 @@
 
   // ========== POST to backend ==========
 
-  function postFilterUpdate(filterIndex, params, type, scope, callback) {
+  function postFilterUpdate(filterIndex, params, type, scope, matchScope, callback) {
     var xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/peq', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
@@ -1703,7 +1703,21 @@
     var filterData = { index: filterIndex, params: params };
     if (type) filterData.type = type;
     if (scope) filterData.scope = scope;
+    if (matchScope) filterData.matchScope = matchScope;
     xhr.send(JSON.stringify({ filters: [filterData] }));
+  }
+
+  // ========== Filter lookup helper (disambiguates L/R in 2XEQ15) ==========
+
+  function findFilterIdx(filters, index, scope) {
+    for (var j = 0; j < filters.length; j++) {
+      if (filters[j].index === index && filters[j].scope === scope) return j;
+    }
+    // Fallback: match by index only (PEQ/EQ15 with L+R scope)
+    for (var j = 0; j < filters.length; j++) {
+      if (filters[j].index === index) return j;
+    }
+    return -1;
   }
 
   // ========== Popup ==========
@@ -1745,11 +1759,9 @@
 
       attachKnobInteraction(knobEl, config, i, function (paramIdx, newValue) {
         var f = currentData.filters;
-        for (var j = 0; j < f.length; j++) {
-          if (f[j].index === ind.index) {
-            f[j].params[paramIdx] = newValue;
-            break;
-          }
+        var fIdx = findFilterIdx(f, ind.index, ind.scope);
+        if (fIdx >= 0) {
+          f[fIdx].params[paramIdx] = newValue;
         }
         renderLocal();
         var errEl = document.getElementById('popup-error-text');
@@ -1839,12 +1851,10 @@
         var currentFreq = getPopupParams()[0] || ind.params[0];
         var newParams = getDefaultParamsForType(newType, currentFreq);
         // Update currentData for live preview
-        for (var j = 0; j < currentData.filters.length; j++) {
-          if (currentData.filters[j].index === ind.index) {
-            currentData.filters[j].type = newType;
-            currentData.filters[j].params = newParams;
-            break;
-          }
+        var fIdx = findFilterIdx(currentData.filters, ind.index, ind.scope);
+        if (fIdx >= 0) {
+          currentData.filters[fIdx].type = newType;
+          currentData.filters[fIdx].params = newParams;
         }
         knobDragState = null;
         rebuildPopupParams(newType, newParams, ind);
@@ -1867,14 +1877,13 @@
         if (errEl) errEl.textContent = err;
         return;
       }
-      var origFilter = popupSnapshotData.filters.filter(function (f) {
-        return f.index === ind.index;
-      })[0];
-      var typeChanged = !isEQ15 && (popupCurrentType !== origFilter.type);
+      var origIdx = findFilterIdx(popupSnapshotData.filters, ind.index, ind.scope);
+      var origFilter = origIdx >= 0 ? popupSnapshotData.filters[origIdx] : null;
+      var typeChanged = !isEQ15 && origFilter && (popupCurrentType !== origFilter.type);
       var scopeSelect = document.getElementById('popup-scope-select');
       var newScope = scopeSelect ? scopeSelect.value : null;
-      var scopeChanged = newScope && newScope !== origFilter.scope;
-      postFilterUpdate(ind.index, ep, typeChanged ? popupCurrentType : null, scopeChanged ? newScope : null, function (serverErr) {
+      var scopeChanged = newScope && origFilter && newScope !== origFilter.scope;
+      postFilterUpdate(ind.index, ep, typeChanged ? popupCurrentType : null, scopeChanged ? newScope : null, ind.scope, function (serverErr) {
         if (serverErr) {
           if (errEl) errEl.textContent = serverErr;
         } else {
@@ -2255,29 +2264,27 @@
     var isEQ15 = (currentMode === 'EQ15' || currentMode === '2XEQ15');
 
     // Find the filter in currentData
-    for (var j = 0; j < currentData.filters.length; j++) {
-      if (currentData.filters[j].index === ind.index) {
-        var newParams = currentData.filters[j].params.slice();
-        // Clamp mouse to plot area
-        var w = canvas.width / dpr;
-        var h = canvas.height / dpr;
-        var clampedX = Math.max(margin.left, Math.min(mx, w - margin.right));
-        var clampedY = Math.max(margin.top, Math.min(my, h - margin.bottom));
-        // Update frequency from X (locked in EQ15 mode)
-        if (!isEQ15) {
-          var newFreq = xToFreq(clampedX);
-          newFreq = Math.max(1, Math.min(22049, newFreq));
-          newParams[0] = Math.round(newFreq * 10) / 10;
-        }
-        // Update gain from Y if applicable
-        if (meta.hasGain) {
-          var newGain = yToDb(clampedY, lastDbMin, lastDbMax);
-          newGain = Math.max(-20, Math.min(20, newGain));
-          newParams[1] = Math.round(newGain * 100) / 100;
-        }
-        currentData.filters[j].params = newParams;
-        break;
+    var fIdx = findFilterIdx(currentData.filters, ind.index, ind.scope);
+    if (fIdx >= 0) {
+      var newParams = currentData.filters[fIdx].params.slice();
+      // Clamp mouse to plot area
+      var w = canvas.width / dpr;
+      var h = canvas.height / dpr;
+      var clampedX = Math.max(margin.left, Math.min(mx, w - margin.right));
+      var clampedY = Math.max(margin.top, Math.min(my, h - margin.bottom));
+      // Update frequency from X (locked in EQ15 mode)
+      if (!isEQ15) {
+        var newFreq = xToFreq(clampedX);
+        newFreq = Math.max(1, Math.min(22049, newFreq));
+        newParams[0] = Math.round(newFreq * 10) / 10;
       }
+      // Update gain from Y if applicable
+      if (meta.hasGain) {
+        var newGain = yToDb(clampedY, lastDbMin, lastDbMax);
+        newGain = Math.max(-20, Math.min(20, newGain));
+        newParams[1] = Math.round(newGain * 100) / 100;
+      }
+      currentData.filters[fIdx].params = newParams;
     }
 
     var responses = computeResponses(currentData);
@@ -2310,11 +2317,9 @@
     dragStartY = pos.y;
     dragMoved = false;
     // Save original params for revert
-    for (var j = 0; j < currentData.filters.length; j++) {
-      if (currentData.filters[j].index === ind.index) {
-        dragOriginalParams = currentData.filters[j].params.slice();
-        break;
-      }
+    var fIdx = findFilterIdx(currentData.filters, ind.index, ind.scope);
+    if (fIdx >= 0) {
+      dragOriginalParams = currentData.filters[fIdx].params.slice();
     }
     canvas.style.cursor = 'grabbing';
   });
@@ -2367,24 +2372,20 @@
         dragging = false;
         dragFilterIndex = -1;
         canvas.style.cursor = 'pointer';
-        for (var j = 0; j < currentData.filters.length; j++) {
-          if (currentData.filters[j].index === ind.index) {
-            postFilterUpdate(ind.index, currentData.filters[j].params, null, null, function (err) {
-              if (err) {
-                // Revert on error
-                for (var k = 0; k < currentData.filters.length; k++) {
-                  if (currentData.filters[k].index === ind.index) {
-                    currentData.filters[k].params = dragOriginalParams;
-                    break;
-                  }
-                }
-                renderLocal();
+        var fIdx = findFilterIdx(currentData.filters, ind.index, ind.scope);
+        if (fIdx >= 0) {
+          postFilterUpdate(ind.index, currentData.filters[fIdx].params, null, null, ind.scope, function (err) {
+            if (err) {
+              // Revert on error
+              var rIdx = findFilterIdx(currentData.filters, ind.index, ind.scope);
+              if (rIdx >= 0) {
+                currentData.filters[rIdx].params = dragOriginalParams;
               }
-              dragOriginalParams = null;
-              scheduleInteractionEnd();
-            });
-            break;
-          }
+              renderLocal();
+            }
+            dragOriginalParams = null;
+            scheduleInteractionEnd();
+          });
         }
       } else {
         // Click (no drag) - show popup
@@ -2409,14 +2410,12 @@
       dragging = false;
       dragFilterIndex = -1;
       canvas.style.cursor = 'default';
-      for (var j = 0; j < currentData.filters.length; j++) {
-        if (currentData.filters[j].index === ind.index) {
-          postFilterUpdate(ind.index, currentData.filters[j].params, null, null, function () {
-            dragOriginalParams = null;
-            scheduleInteractionEnd();
-          });
-          break;
-        }
+      var fIdx = findFilterIdx(currentData.filters, ind.index, ind.scope);
+      if (fIdx >= 0) {
+        postFilterUpdate(ind.index, currentData.filters[fIdx].params, null, null, ind.scope, function () {
+          dragOriginalParams = null;
+          scheduleInteractionEnd();
+        });
       }
     } else {
       dragFilterIndex = -1;
@@ -2448,11 +2447,9 @@
     dragStartX = pos.x;
     dragStartY = pos.y;
     dragMoved = false;
-    for (var j = 0; j < currentData.filters.length; j++) {
-      if (currentData.filters[j].index === ind.index) {
-        dragOriginalParams = currentData.filters[j].params.slice();
-        break;
-      }
+    var fIdx = findFilterIdx(currentData.filters, ind.index, ind.scope);
+    if (fIdx >= 0) {
+      dragOriginalParams = currentData.filters[fIdx].params.slice();
     }
   }, { passive: false });
 
@@ -2486,23 +2483,19 @@
     if (dragMoved) {
       dragging = false;
       dragFilterIndex = -1;
-      for (var j = 0; j < currentData.filters.length; j++) {
-        if (currentData.filters[j].index === ind.index) {
-          postFilterUpdate(ind.index, currentData.filters[j].params, null, null, function (err) {
-            if (err) {
-              for (var k = 0; k < currentData.filters.length; k++) {
-                if (currentData.filters[k].index === ind.index) {
-                  currentData.filters[k].params = dragOriginalParams;
-                  break;
-                }
-              }
-              renderLocal();
+      var fIdx = findFilterIdx(currentData.filters, ind.index, ind.scope);
+      if (fIdx >= 0) {
+        postFilterUpdate(ind.index, currentData.filters[fIdx].params, null, null, ind.scope, function (err) {
+          if (err) {
+            var rIdx = findFilterIdx(currentData.filters, ind.index, ind.scope);
+            if (rIdx >= 0) {
+              currentData.filters[rIdx].params = dragOriginalParams;
             }
-            dragOriginalParams = null;
-            scheduleInteractionEnd();
-          });
-          break;
-        }
+            renderLocal();
+          }
+          dragOriginalParams = null;
+          scheduleInteractionEnd();
+        });
       }
     } else {
       dragFilterIndex = -1;
@@ -2515,11 +2508,9 @@
   canvas.addEventListener('touchcancel', function () {
     if (dragFilterIndex >= 0 && dragOriginalParams) {
       var ind = lastResponses.individual[dragFilterIndex];
-      for (var j = 0; j < currentData.filters.length; j++) {
-        if (currentData.filters[j].index === ind.index) {
-          currentData.filters[j].params = dragOriginalParams;
-          break;
-        }
+      var fIdx = findFilterIdx(currentData.filters, ind.index, ind.scope);
+      if (fIdx >= 0) {
+        currentData.filters[fIdx].params = dragOriginalParams;
       }
       renderLocal();
     }
