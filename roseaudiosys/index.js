@@ -111,14 +111,59 @@ roseaudiosys.prototype.getAudioOutputDeviceName = function() {
     }
 }
 
+/**
+ * Check if the system is ready by checking the Volumio System Status environment variable
+ * @return true if the system is ready, false otherwise
+ */
+roseaudiosys.prototype.isSystemReady = function() {
+	const self = this;
+
+	//Check if the system is ready
+	const systemStatus = process.env.VOLUMIO_SYSTEM_STATUS;
+	self.log("isSystemReady > Checking if system is ready... Status: " + systemStatus + ".", "info");
+
+	return systemStatus && systemStatus.toLowerCase() === 'ready';
+}
+
+/**
+ * Create a promise that resolves after a specified time (in milliseconds)
+ * @param {Time to sleep in milleseconds} ms 
+ * @returns A promise that resolves after the specified time has passed
+ */
+roseaudiosys.prototype.sleep = function(ms) {
+	return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // Plugin is starting
-roseaudiosys.prototype.onStart = function() {
+roseaudiosys.prototype.onStart = async function() {
     const self = this;
 	const defer = libQ.defer();
 	const  volumioReadyGPIO = parseInt(self.config.get("volumioReadyGPIO.pin"), 10);
+	const SYSTEM_READY_CHECK_INTERVAL = 1000; //Interval in milliseconds to check if system is ready
+	const SYSTEM_READY_MAX_RETRIES = 120; //Maximum number of retries to check if system is ready
+	let retryCount = 0;
 	
 	//Log Rose Audio System Initialization Plugin startup
 	self.log("onStart > Starting Rose Audio System Initialization Plugin!", "info", true);
+
+	/*#######################################################################*/
+	/* Wait for system to be ready
+	/*#######################################################################*/
+	//https://www.sitepoint.com/delay-sleep-pause-wait/
+	//https://javascript.info/async-await
+	self.log("onStart > System is not ready yet. Waiting...", "info");
+	while (!self.isSystemReady() && (retryCount < SYSTEM_READY_MAX_RETRIES)) {
+		if (retryCount > 0) self.log("onStart > Checking if system is ready... Retry count: " + retryCount, "info");
+		await self.sleep(SYSTEM_READY_CHECK_INTERVAL); //Wait for SYSTEM_READY_CHECK_INTERVAL ms before checking again
+		retryCount++;
+	}
+	
+	//If the system is not ready after maximum retries, log an error but continue with the plugin initialization.
+	if (retryCount >= SYSTEM_READY_MAX_RETRIES) {
+		self.log("onStart > System is not ready after maximum retries!", "error");
+	} else {
+		self.log("onStart > System is ready after " + retryCount + " retries (seconds)!", "info");
+	}
 
 	/*#######################################################################*/
 	/* Retrieve the audio output device name
