@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "Installing roseaudiosys Dependencies"
-sudo apt-get update
+# sudo apt-get update
 # Install the required packages via apt-get
 # sudo apt-get -y install
 
