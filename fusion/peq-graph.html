@@ -69,7 +69,7 @@
     white-space: nowrap;
   }
   #octave-table {
-    display: flex;
+    display: none;
     flex-direction: row;
     overflow-x: auto;
     background: #090909;
@@ -302,6 +302,11 @@
   .header-btn:hover {
     background: #484848;
   }
+  .header-btn.active {
+    background: #54C688;
+    border-color: #54C688;
+    color: #fff;
+  }
   .header-btn.save-btn {
     background: #54C688;
     border-color: #54C688;
@@ -334,6 +339,7 @@
   <div id="header-controls">
     <span id="status-msg"></span>
     <span id="unsaved-dot" title="Unsaved changes"></span>
+    <button class="header-btn" id="btn-toggle-octave">1/3 Oct</button>
     <button class="header-btn" id="btn-add-filter">+ Add Filter</button>
     <button class="header-btn" id="btn-reset">Reset</button>
     <button class="header-btn save-btn" id="btn-save">Save</button>
@@ -371,9 +377,32 @@
   var btnReset = document.getElementById('btn-reset');
   var btnSave = document.getElementById('btn-save');
   var btnAddFilter = document.getElementById('btn-add-filter');
+  var btnToggleOctave = document.getElementById('btn-toggle-octave');
   var unsavedDot = document.getElementById('unsaved-dot');
   var statusMsg = document.getElementById('status-msg');
   var hasUnsavedChanges = false;
+
+  // Octave table toggle
+  (function initOctaveToggle() {
+    var octaveEl = document.getElementById('octave-table');
+    var shown = localStorage.getItem('fusiondsp-show-octave') === '1';
+    if (shown) {
+      octaveEl.style.display = 'flex';
+      btnToggleOctave.classList.add('active');
+    }
+    btnToggleOctave.addEventListener('click', function () {
+      var isVisible = octaveEl.style.display === 'flex';
+      if (isVisible) {
+        octaveEl.style.display = 'none';
+        btnToggleOctave.classList.remove('active');
+        localStorage.removeItem('fusiondsp-show-octave');
+      } else {
+        octaveEl.style.display = 'flex';
+        btnToggleOctave.classList.add('active');
+        localStorage.setItem('fusiondsp-show-octave', '1');
+      }
+    });
+  })();
 
   // Interaction state
   var interacting = false;
