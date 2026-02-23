@@ -116,7 +116,7 @@
     white-space: nowrap;
   }
   #legend {
-    display: flex;
+    display: none;
     flex-wrap: wrap;
     gap: 8px 16px;
     padding: 8px 20px;
@@ -339,6 +339,7 @@
   <div id="header-controls">
     <span id="status-msg"></span>
     <span id="unsaved-dot" title="Unsaved changes"></span>
+    <button class="header-btn" id="btn-toggle-legend">Legend</button>
     <button class="header-btn" id="btn-toggle-octave">1/3 Oct</button>
     <button class="header-btn" id="btn-add-filter">+ Add Filter</button>
     <button class="header-btn" id="btn-reset">Reset</button>
@@ -378,31 +379,34 @@
   var btnSave = document.getElementById('btn-save');
   var btnAddFilter = document.getElementById('btn-add-filter');
   var btnToggleOctave = document.getElementById('btn-toggle-octave');
+  var btnToggleLegend = document.getElementById('btn-toggle-legend');
   var unsavedDot = document.getElementById('unsaved-dot');
   var statusMsg = document.getElementById('status-msg');
   var hasUnsavedChanges = false;
 
-  // Octave table toggle
-  (function initOctaveToggle() {
-    var octaveEl = document.getElementById('octave-table');
-    var shown = localStorage.getItem('fusiondsp-show-octave') === '1';
+  // Panel toggle helper
+  function initPanelToggle(btn, panelId, storageKey, displayStyle) {
+    var panel = document.getElementById(panelId);
+    var shown = localStorage.getItem(storageKey) === '1';
     if (shown) {
-      octaveEl.style.display = 'flex';
-      btnToggleOctave.classList.add('active');
+      panel.style.display = displayStyle;
+      btn.classList.add('active');
     }
-    btnToggleOctave.addEventListener('click', function () {
-      var isVisible = octaveEl.style.display === 'flex';
+    btn.addEventListener('click', function () {
+      var isVisible = panel.style.display === displayStyle;
       if (isVisible) {
-        octaveEl.style.display = 'none';
-        btnToggleOctave.classList.remove('active');
-        localStorage.removeItem('fusiondsp-show-octave');
+        panel.style.display = 'none';
+        btn.classList.remove('active');
+        localStorage.removeItem(storageKey);
       } else {
-        octaveEl.style.display = 'flex';
-        btnToggleOctave.classList.add('active');
-        localStorage.setItem('fusiondsp-show-octave', '1');
+        panel.style.display = displayStyle;
+        btn.classList.add('active');
+        localStorage.setItem(storageKey, '1');
       }
     });
-  })();
+  }
+  initPanelToggle(btnToggleOctave, 'octave-table', 'fusiondsp-show-octave', 'flex');
+  initPanelToggle(btnToggleLegend, 'legend', 'fusiondsp-show-legend', 'flex');
 
   // Interaction state
   var interacting = false;
