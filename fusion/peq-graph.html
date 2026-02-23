@@ -307,6 +307,16 @@
     border-color: #54C688;
     color: #fff;
   }
+  .channel-toggle.active[id="btn-toggle-left"] {
+    background: #4CAF50;
+    border-color: #4CAF50;
+    color: #fff;
+  }
+  .channel-toggle.active[id="btn-toggle-right"] {
+    background: #2196F3;
+    border-color: #2196F3;
+    color: #fff;
+  }
   .header-btn.save-btn {
     background: #54C688;
     border-color: #54C688;
@@ -341,6 +351,8 @@
     <span id="unsaved-dot" title="Unsaved changes"></span>
     <button class="header-btn" id="btn-toggle-legend">Legend</button>
     <button class="header-btn" id="btn-toggle-octave">1/3 Oct</button>
+    <button class="header-btn channel-toggle active" id="btn-toggle-left" style="display:none;">L</button>
+    <button class="header-btn channel-toggle active" id="btn-toggle-right" style="display:none;">R</button>
     <button class="header-btn" id="btn-add-filter">+ Add Filter</button>
     <button class="header-btn" id="btn-reset">Reset</button>
     <button class="header-btn save-btn" id="btn-save">Save</button>
@@ -383,6 +395,22 @@
   var unsavedDot = document.getElementById('unsaved-dot');
   var statusMsg = document.getElementById('status-msg');
   var hasUnsavedChanges = false;
+  var showL = true, showR = true;
+  var btnToggleLeft = document.getElementById('btn-toggle-left');
+  var btnToggleRight = document.getElementById('btn-toggle-right');
+
+  btnToggleLeft.addEventListener('click', function () {
+    showL = !showL;
+    if (showL) btnToggleLeft.classList.add('active');
+    else btnToggleLeft.classList.remove('active');
+    renderLocal();
+  });
+  btnToggleRight.addEventListener('click', function () {
+    showR = !showR;
+    if (showR) btnToggleRight.classList.add('active');
+    else btnToggleRight.classList.remove('active');
+    renderLocal();
+  });
 
   // Panel toggle helper
   function initPanelToggle(btn, panelId, storageKey, displayStyle) {
@@ -1414,10 +1442,12 @@
     if (responses) {
       var allCurves = [];
       for (var i = 0; i < responses.individual.length; i++) {
-        allCurves.push(responses.individual[i].curve);
+        if (isFilterVisible(responses.individual[i].scope)) {
+          allCurves.push(responses.individual[i].curve);
+        }
       }
-      if (responses.combinedL) allCurves.push(responses.combinedL);
-      if (responses.combinedR) allCurves.push(responses.combinedR);
+      if (responses.combinedL && showL) allCurves.push(responses.combinedL);
+      if (responses.combinedR && showR) allCurves.push(responses.combinedR);
       if (responses.combinedLR) allCurves.push(responses.combinedLR);
 
       for (var i = 0; i < allCurves.length; i++) {
@@ -1505,6 +1535,7 @@
     // Draw individual filter curves
     for (var fi = 0; fi < responses.individual.length; fi++) {
       var ind = responses.individual[fi];
+      if (!isFilterVisible(ind.scope)) continue;
       var color = filterColors[fi % filterColors.length];
       ctx.strokeStyle = color;
       ctx.globalAlpha = 0.4;
@@ -1524,16 +1555,17 @@
     if (responses.combinedLR) {
       drawCurve(responses.combinedLR, '#54C688', 3, dbMin, dbMax);
     }
-    if (responses.combinedL) {
+    if (responses.combinedL && showL) {
       drawCurve(responses.combinedL, '#4CAF50', 2.5, dbMin, dbMax);
     }
-    if (responses.combinedR) {
+    if (responses.combinedR && showR) {
       drawCurve(responses.combinedR, '#2196F3', 2.5, dbMin, dbMax);
     }
 
     // Draw numbered PEQ markers at each filter's center frequency (on top of all curves)
     for (var fi = 0; fi < responses.individual.length; fi++) {
       var ind = responses.individual[fi];
+      if (!isFilterVisible(ind.scope)) continue;
       var color = filterColors[fi % filterColors.length];
       var markerFreq, markerDb;
       if (ind.type === 'Tilt') {
@@ -1630,6 +1662,7 @@
     // Iterate in reverse so topmost (last drawn) is tested first
     for (var fi = responses.individual.length - 1; fi >= 0; fi--) {
       var ind = responses.individual[fi];
+      if (!isFilterVisible(ind.scope)) continue;
       var markerFreq, markerDb;
       if (ind.type === 'Tilt') {
         markerFreq = 1000;
@@ -2003,6 +2036,26 @@
     }, 2000);
   }
 
+  // ========== Channel toggle helpers ==========
+
+  function isFilterVisible(scope) {
+    if (scope === 'L') return showL;
+    if (scope === 'R') return showR;
+    return showL || showR;
+  }
+
+  function updateChannelToggleVisibility(responses) {
+    var hasSeparateLR = responses && (responses.combinedL !== null || responses.combinedR !== null);
+    btnToggleLeft.style.display = hasSeparateLR ? '' : 'none';
+    btnToggleRight.style.display = hasSeparateLR ? '' : 'none';
+    if (!hasSeparateLR) {
+      showL = true;
+      showR = true;
+      btnToggleLeft.classList.add('active');
+      btnToggleRight.classList.add('active');
+    }
+  }
+
   // ========== Local render helper ==========
 
   function renderLocal() {
@@ -2012,6 +2065,7 @@
       lastResponses = responses;
       lastDbMin = render.dbMin || -15;
       lastDbMax = render.dbMax || 15;
+      updateChannelToggleVisibility(responses);
       resizeCanvas();
       render(responses);
       updateLegend(responses);
@@ -2040,6 +2094,7 @@
     // Individual filters
     for (var i = 0; i < responses.individual.length; i++) {
       var ind = responses.individual[i];
+      if (!isFilterVisible(ind.scope)) continue;
       var color = filterColors[i % filterColors.length];
       var paramStr = ind.params.join(', ');
       // Compute peak dB for this filter
@@ -2061,11 +2116,11 @@
       var mm = curveMinMax(responses.combinedLR);
       addLegendItem('Combined L+R (min: ' + mm.min.toFixed(1) + ' / max: ' + mm.max.toFixed(1) + ' dB)', '#54C688');
     }
-    if (responses.combinedL) {
+    if (responses.combinedL && showL) {
       var mm = curveMinMax(responses.combinedL);
       addLegendItem('Combined L (min: ' + mm.min.toFixed(1) + ' / max: ' + mm.max.toFixed(1) + ' dB)', '#4CAF50');
     }
-    if (responses.combinedR) {
+    if (responses.combinedR && showR) {
       var mm = curveMinMax(responses.combinedR);
       addLegendItem('Combined R (min: ' + mm.min.toFixed(1) + ' / max: ' + mm.max.toFixed(1) + ' dB)', '#2196F3');
     }
@@ -2119,10 +2174,18 @@
             if (ind.scope === 'R' || ind.scope === 'L+R') dbR += db;
           }
         }
-        var clsL = dbL > 0.05 ? 'positive' : (dbL < -0.05 ? 'negative' : 'zero');
-        var clsR = dbR > 0.05 ? 'positive' : (dbR < -0.05 ? 'negative' : 'zero');
-        html += '<span class="octave-val-lr left">' + dbL.toFixed(1) + '</span>';
-        html += '<span class="octave-val-lr right">' + dbR.toFixed(1) + '</span>';
+        if (showL && showR) {
+          html += '<span class="octave-val-lr left">' + dbL.toFixed(1) + '</span>';
+          html += '<span class="octave-val-lr right">' + dbR.toFixed(1) + '</span>';
+        } else if (showL) {
+          var clsL = dbL > 0.05 ? 'positive' : (dbL < -0.05 ? 'negative' : 'zero');
+          html += '<span class="octave-val ' + clsL + '">' + dbL.toFixed(1) + '</span>';
+        } else if (showR) {
+          var clsR = dbR > 0.05 ? 'positive' : (dbR < -0.05 ? 'negative' : 'zero');
+          html += '<span class="octave-val ' + clsR + '">' + dbR.toFixed(1) + '</span>';
+        } else {
+          html += '<span class="octave-val zero">0.0</span>';
+        }
       } else {
         // Combined
         var dbC = 0;
@@ -2150,6 +2213,7 @@
     var closestDist = Infinity;
     for (var i = 0; i < lastResponses.individual.length; i++) {
       var ind = lastResponses.individual[i];
+      if (!isFilterVisible(ind.scope)) continue;
       var filterFreq = ind.type === 'Tilt' ? 1000 : ind.params[0];
       if (filterFreq < fMin || filterFreq > fMax) continue;
       var fx = freqToX(filterFreq);
@@ -2183,6 +2247,7 @@
           btnReset.style.display = isEQ15 ? 'none' : '';
           var responses = computeResponses(currentData);
           lastResponses = responses;
+          updateChannelToggleVisibility(responses);
           updateLegend(responses);
           updateOctaveTable(responses);
           resizeCanvas();
@@ -2240,6 +2305,7 @@
         var combinedDb = 0;
         for (var i = 0; i < lastResponses.individual.length; i++) {
           var ind = lastResponses.individual[i];
+          if (!isFilterVisible(ind.scope)) continue;
           if (ind.biquads && ind.biquads.length > 0) {
             combinedDb += evalBiquadMagnitudeDb(ind.biquads, displayFreq, lastResponses.sampleRate);
           }
