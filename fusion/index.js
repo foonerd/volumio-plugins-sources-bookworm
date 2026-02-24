@@ -1367,9 +1367,11 @@ FusionDsp.prototype.startPeqGraphServer = function () {
           if (typer === 'Peaking' || typer === 'Peaking2' || typer === 'Highshelf' || typer === 'Highshelf2' ||
               typer === 'Lowshelf' || typer === 'Lowshelf2' || typer === 'LowshelfFO' || typer === 'HighshelfFO') {
             var g = Number(newParams[1]);
-            if (!isFinite(g) || g <= -20.1 || g >= 20.1) {
+            var gainLimit = (mode === 'EQ15' || mode === '2XEQ15') ? 10.1 : 20.1;
+            if (!isFinite(g) || g <= -gainLimit || g >= gainLimit) {
+              var limitLabel = (mode === 'EQ15' || mode === '2XEQ15') ? '10' : '20';
               res.writeHead(400, corsHeaders);
-              res.end(JSON.stringify({ error: 'Gain out of range for Eq' + idx }));
+              res.end(JSON.stringify({ error: 'Gain must be between -' + limitLabel + ' and ' + limitLabel + ' dB for Eq' + idx }));
               return;
             }
           }
@@ -1815,6 +1817,7 @@ FusionDsp.prototype.reseteq = function () {
     self.config.set("savedgeq15", defaultEQ15);
     self.config.set('nbreq', 15);
     self.config.set('mergedeq', defaultMergedEQ15);
+    self.config.set('savedmergedgeq15', defaultMergedEQ15);
   } else if (selectedsp === '2XEQ15') {
     self.config.set(`${selectedsp}preset`, 'no preset used');
     self.config.set('usethispreset', 'no preset used');
@@ -1822,6 +1825,9 @@ FusionDsp.prototype.reseteq = function () {
     self.config.set("geq15", defaultEQ15);
     self.config.set('nbreq', 30);
     self.config.set('mergedeq', defaultMerged2XEQ15);
+    self.config.set('savedmergedeqx2geq15', defaultMerged2XEQ15);
+    self.config.set('savedx2geq15l', defaultEQ15);
+    self.config.set('savedx2geq15r', defaultEQ15);
   }
 
   setTimeout(() => {
