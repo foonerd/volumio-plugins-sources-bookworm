@@ -530,6 +530,10 @@
     if (label === 'Bandwidth' && (type === 'Notch2' || type === 'Highpass2' || type === 'Lowpass2')) {
       cfg.max = 25;
     }
+    if (label === 'Gain (dB)' && (currentMode === 'EQ15' || currentMode === '2XEQ15')) {
+      cfg.min = -10;
+      cfg.max = 10;
+    }
     return cfg;
   }
 
@@ -1438,7 +1442,9 @@
     ctx.clearRect(0, 0, w, h);
 
     // Determine dB range
-    var dbMin = -15, dbMax = 15;
+    var isEQ15Mode = (currentMode === 'EQ15' || currentMode === '2XEQ15');
+    var dbMin = isEQ15Mode ? -10 : -15;
+    var dbMax = isEQ15Mode ? 10 : 15;
     if (responses) {
       var allCurves = [];
       for (var i = 0; i < responses.individual.length; i++) {
@@ -1460,14 +1466,16 @@
         }
       }
       // Add padding and ensure minimum range
+      var minRange = isEQ15Mode ? 20 : 30;
       var range = dbMax - dbMin;
-      if (range < 30) {
+      if (range < minRange) {
         var mid = (dbMax + dbMin) / 2;
-        dbMin = mid - 15;
-        dbMax = mid + 15;
+        dbMin = mid - minRange / 2;
+        dbMax = mid + minRange / 2;
       }
-      dbMin = Math.floor(dbMin / 6) * 6 - 6;
-      dbMax = Math.ceil(dbMax / 6) * 6 + 6;
+      var padDb = isEQ15Mode ? 2 : 6;
+      dbMin = Math.floor(dbMin / 6) * 6 - padDb;
+      dbMax = Math.ceil(dbMax / 6) * 6 + padDb;
     }
 
     var plotW = w - margin.left - margin.right;
@@ -1701,7 +1709,10 @@
 
     if (meta.hasGain) {
       var g = Number(params[1]);
-      if (!isFinite(g) || g <= -20.1 || g >= 20.1) return 'Gain must be between -20 and 20 dB';
+      var isEQ15v = (currentMode === 'EQ15' || currentMode === '2XEQ15');
+      var gainMax = isEQ15v ? 10.1 : 20.1;
+      var gainLabel = isEQ15v ? '10' : '20';
+      if (!isFinite(g) || g <= -gainMax || g >= gainMax) return 'Gain must be between -' + gainLabel + ' and ' + gainLabel + ' dB';
     }
     if (type === 'Peaking' || type === 'Highshelf2' || type === 'Lowshelf2') {
       var q = Number(params[2]);
@@ -2380,7 +2391,8 @@
       // Update gain from Y if applicable
       if (meta.hasGain) {
         var newGain = yToDb(clampedY, lastDbMin, lastDbMax);
-        newGain = Math.max(-20, Math.min(20, newGain));
+        var gainLimit = isEQ15 ? 10 : 20;
+        newGain = Math.max(-gainLimit, Math.min(gainLimit, newGain));
         newParams[1] = Math.round(newGain * 100) / 100;
       }
       currentData.filters[fIdx].params = newParams;
