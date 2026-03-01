@@ -20,7 +20,7 @@
     "os": [
       "bookworm"
     ],
-    "details": "High Resolution Radio – Mother Earth Radio is the world's first station streaming exclusively in lossless FLAC quality up to 192 kHz / 24-bit. Carefully curated classical, jazz, and instrumental music – handpicked for audiophile listeners. Hi Res Audio & Vinyl, no advertising, no compression, no compromises. Stream now.",
+    "details": "High Resolution Radio - Mother Earth Radio is the world's first station streaming exclusively in lossless FLAC quality up to 192 kHz / 24-bit. Carefully curated classical, jazz, and instrumental music – handpicked for audiophile listeners. Hi Res Audio & Vinyl, no advertising, no compression, no compromises. Stream now.",
     "changelog": "1.5.1 migrated to new server"
   },
   "engines": {
