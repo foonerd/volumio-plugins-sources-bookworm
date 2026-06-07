@@ -1,5 +1,5 @@
 /*--------------------
-// FusionDsp plugin for volumio 3. By balbuze May 2026
+// FusionDsp plugin for volumio 4. By balbuze June 2026
 Camilladsp v4.1.0
 contribution : Nerd, Paolo Sabatino, squadgazzz
 Multi Dsp features
@@ -585,14 +585,14 @@ function addPeqButtons(self, uiconf, ncontent) {
   const IPaddress = self.config.get('address');
   const showPeqCurveButton = {
 
-      id: 'showpeqcurve',
-      element: 'button',
-      label: self.commandRouter.getI18nString('SHOW_PEQ_CURVE'),
-      doc: self.commandRouter.getI18nString('SHOW_PEQ_CURVE_DOC'),
-      onClick: { type: 'openUrl', url: `http://${IPaddress}:10015` }
+    id: 'showpeqcurve',
+    element: 'button',
+    label: self.commandRouter.getI18nString('SHOW_PEQ_CURVE'),
+    doc: self.commandRouter.getI18nString('SHOW_PEQ_CURVE_DOC'),
+    onClick: { type: 'openUrl', url: `http://${IPaddress}:10015` }
 
-      // visibleIf: { field: 'showeq', value: true }
-    };
+    // visibleIf: { field: 'showeq', value: true }
+  };
   /*    }
   const showPeqCurveButton = {
     id: 'showpeqcurve',
@@ -628,18 +628,28 @@ function configureEq15Section(self, uiconf, selectedsp) {
   uiconf.sections[6].hidden = true;
   uiconf.sections[7].hidden = true;
   uiconf.sections[9].hidden = true;
+  const IPaddress = self.config.get('address');
 
   const listeq = selectedsp === 'EQ15' ? ['geq15'] : ['geq15', 'x2geq15'];
   const eqtext = selectedsp === 'EQ15'
     ? self.commandRouter.getI18nString('LANDRCHAN')
     : `${self.commandRouter.getI18nString('LEFTCHAN')},${self.commandRouter.getI18nString('RIGHTCHAN')}`;
 
+        uiconf.sections[1].content.push({
+      id: 'showpeqcurve',
+      element: 'button',
+      label: self.commandRouter.getI18nString('SHOW_PEQ_CURVE'),
+      doc: self.commandRouter.getI18nString('SHOW_PEQ_CURVE_DOC'),
+      onClick: { type: 'openUrl', url: `http://${IPaddress}:10015` }
+
+      // visibleIf: { field: 'showeq', value: true }
+    });
+
   listeq.forEach((eq, i) => {
     const neq = eqtext.split(',')[i];
     const geq15 = self.config.get(eq).split(',');
     const muteKey = eq === 'x2geq15' ? 'x2geq15mute' : 'geq15mute';
     const mutedBands = (self.config.get(muteKey) || '0,0,0,0,0,0,0,0,0,0,0,0,0,0,0').split(',');
-    const IPaddress = self.config.get('address');
 
     const bars = eq15range.map((label, idx) => ({
       min: -10,
@@ -650,7 +660,7 @@ function configureEq15Section(self, uiconf, selectedsp) {
       tooltip: 'show',
       muted: mutedBands[idx] === '1'
     }));
-
+/*
     uiconf.sections[1].content.push({
       id: 'showpeqcurve',
       element: 'button',
@@ -660,6 +670,7 @@ function configureEq15Section(self, uiconf, selectedsp) {
 
       // visibleIf: { field: 'showeq', value: true }
     });
+    */
     uiconf.sections[1].content.push({
       id: eq,
       element: 'equalizer',
@@ -887,7 +898,7 @@ function configureAdvancedSettings(self, uiconf, selectedsp) {
       { id: 'loudness', element: 'switch', doc: self.commandRouter.getI18nString('LOUDNESS_DOC'), label: self.commandRouter.getI18nString('LOUDNESS'), value: self.config.get('loudness'), visibleIf: { field: 'showeq', value: true } },
       { id: 'loudnessthreshold', element: 'equalizer', label: self.commandRouter.getI18nString('LOUDNESS_THRESHOLD'), doc: self.commandRouter.getI18nString('LOUDNESS_THRESHOLD_DOC'), visibleIf: { field: 'showeq', value: true }, config: { orientation: 'horizontal', bars: [{ min: 10, max: 100, step: '1', value: self.config.get('loudnessthreshold'), ticksLabels: ['%'], tooltip: 'always' }] } },
       //{ id: 'loudnessstrength', element: 'equalizer', label: self.commandRouter.getI18nString('LOUDNESS_STRENGTH'), doc: self.commandRouter.getI18nString('LOUDNESS_STRENGTH_DOC'), visibleIf: { field: 'showeq', value: true }, config: { orientation: 'horizontal', bars: [{ min: 0, max: 2, step: '1', value: self.config.get('loudnessstrength'), ticks: [0, 1, 2], ticksLabels: ['Min', 'Medium', 'Max'], tooltip: 'show' }] } }
-      { id: 'loudnessstrength', element: 'equalizer', label: self.commandRouter.getI18nString('LOUDNESS_STRENGTH'), doc: self.commandRouter.getI18nString('LOUDNESS_STRENGTH_DOC'), visibleIf: { field: 'showeq', value: true }, config: { orientation: 'horizontal', bars: [{ value: self.config.get('loudnessstrength'), ticks: [0, 1, 2], ticksLabels: ['Min', 'Medium', 'Max'], tooltip: 'hide' }] } }
+      { id: 'loudnessstrength', element: 'equalizer', label: self.commandRouter.getI18nString('LOUDNESS_STRENGTH'), doc: self.commandRouter.getI18nString('LOUDNESS_STRENGTH_DOC'), visibleIf: { field: 'showeq', value: true }, config: { orientation: 'horizontal', bars: [{ value: self.config.get('loudnessstrength'), ticks: [0, 1, 2,3], ticksLabels: ['Min','Low', 'Medium', 'Max'], tooltip: 'hide' }] } }
 
     );
   }
@@ -2527,54 +2538,89 @@ FusionDsp.prototype.monitorClippedSamples = function () {
 
 FusionDsp.prototype.areSampleswitch = function () {
   const self = this;
-  let leftFilter1 = self.config.get('leftfilter');
-  let rightFilter1 = self.config.get('rightfilter');
+  const leftFilter1 = self.config.get('leftfilter');
+  const rightFilter1 = self.config.get('rightfilter');
 
-  // check if filter naming is ok with 44100 in name
-  const isFilterSwappable = (filterName, swapWord) => {
-    let threeLastChar = filterName.slice(-9, -4);
-    if (threeLastChar == swapWord) {
-      return true
+  const supportedRates = [
+    '8000', '11025', '12000', '16000', '22050', '24000', '32000',
+    '44100', '48000', '88200', '96000', '176400', '192000', '384000'
+  ];
+  const sampleRateRegex = new RegExp(`(?:${supportedRates.join('|')})`, 'i');
+
+  const buildPlaceholderInfo = (filterName) => {
+    if (!filterName || filterName === 'None') {
+      return null;
     }
-    else {
-      return false
+
+    if (filterName.includes('$samplerate$')) {
+      return {
+        placeholder: filterName,
+        sampleRate: '$samplerate$'
+      };
     }
+
+    const match = sampleRateRegex.exec(filterName);
+    if (!match) {
+      return null;
+    }
+
+    const sampleRateToken = match[0];
+    const placeholder = filterName.replace(sampleRateRegex, '$samplerate$');
+    return {
+      placeholder,
+      sampleRate: sampleRateToken
+    };
   };
-  let leftResult = isFilterSwappable(leftFilter1, '44100');
-  let rightResult = isFilterSwappable(rightFilter1, '44100');
 
-  // self.logger.info(leftResult + ' + ' + rightResult);
-
-  // check if secoond filter with 96000 in name
-  const isFileExist = (filterName, swapWord) => {
-    let fileExt = filterName.slice(-4);
-    let filterNameShort = filterName.slice(0, -9);
-    let filterNameForSwapc = filterNameShort + swapWord + fileExt;
-    let filterNameForSwap = filterNameShort + "$samplerate$" + fileExt;
-
-    if (fs.exists(filterfolder + filterNameForSwap)) {
-      return [true, filterNameForSwap]
-    } else {
-      return false
+  const getSwappableFilter = (filterName) => {
+    const info = buildPlaceholderInfo(filterName);
+    if (!info) {
+      return null;
     }
 
-  };
-  let leftResultExist = isFileExist(leftFilter1, '96000');
-  let toSaveLeftResult = leftResultExist[1];
-  let rightResultExist = isFileExist(rightFilter1, '96000');
-  let toSaveRightResult = rightResultExist[1];
+    let files = [];
+    try {
+      files = fs.readdirSync(filterfolder);
+    } catch (err) {
+      self.logger.error(logPrefix + ' Error reading filter folder: ' + err.message);
+      return null;
+    }
 
-  // if conditions are true, switching possible
-  if (leftResult & rightResult & leftResultExist[0] & rightResultExist[0]) {
-    self.logger.info(logPrefix + ' sample switch possible !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-    self.config.set('leftfilter', toSaveLeftResult);
-    self.config.set('rightfilter', toSaveRightResult);
+    const matchingSamplerates = new Set();
+    files.forEach((file) => {
+      const candidateInfo = buildPlaceholderInfo(file);
+      if (candidateInfo && candidateInfo.placeholder === info.placeholder) {
+        matchingSamplerates.add(candidateInfo.sampleRate.toLowerCase());
+      }
+    });
+
+    if (matchingSamplerates.size >= 2) {
+      return {
+        placeholder: info.placeholder,
+        samplerates: Array.from(matchingSamplerates)
+      };
+    }
+
+    return null;
+  };
+
+  const leftSwap = getSwappableFilter(leftFilter1);
+  const rightSwap = getSwappableFilter(rightFilter1);
+
+  if (leftSwap && rightSwap) {
+    self.logger.info(logPrefix + ' sample switch possible for both filters');
+    self.config.set('leftfilter', leftSwap.placeholder);
+    self.config.set('rightfilter', rightSwap.placeholder);
     self.config.set('autoswitchsamplerate', true);
   } else {
     self.config.set('autoswitchsamplerate', false);
-  };
-  self.refreshUI()
+    self.logger.info(logPrefix + ' sample switch not possible');
+
+  }
+
+  self.refreshUI();
 };
+
 //------------Here we detect if clipping occurs while playing ------
 FusionDsp.prototype.testclipping = function () {
   const self = this;
@@ -2584,6 +2630,8 @@ FusionDsp.prototype.testclipping = function () {
   let arr = [];
   let filelength = self.config.get('filter_size');
   let track = '/data/plugins/audio_interface/fusiondsp/testclipping/testclipping.wav';
+
+  const cmd = '/usr/bin/aplay -c2 --device=volumio ' + track;
 
   setTimeout(function () {
     self.socket.emit('pause');
@@ -2597,27 +2645,25 @@ FusionDsp.prototype.testclipping = function () {
     self.config.set('muteright', false);
     self.config.set('testclipping', true)
 
-    self.createCamilladspfile();
-  }, 300);
-
-
-  try {
-    let cmd = '/usr/bin/aplay -c2 --device=volumio ' + track;
-
-    // Execute the command asynchronously
-    exec(cmd, (error, stdout, stderr) => {
-      if (error) {
-        self.logger.error(logPrefix + ' Error executing aplay: ' + error.message);
-        return;
-      }
-      if (stderr) {
-        self.logger.warn(logPrefix + ' aplay stderr: ' + stderr);
-      }
-      self.logger.info(logPrefix + ' aplay stdout: ' + stdout);
+    self.createCamilladspfile(() => {
+      setTimeout(() => {
+        try {
+          exec(cmd, (error, stdout, stderr) => {
+            if (error) {
+              self.logger.error(logPrefix + ' Error executing aplay: ' + error.message);
+              return;
+            }
+            if (stderr) {
+              self.logger.warn(logPrefix + ' aplay stderr: ' + stderr);
+            }
+            self.logger.info(logPrefix + ' aplay stdout: ' + stdout);
+          });
+        } catch (error) {
+          self.logger.error(logPrefix + ' Error in clipping detection: ' + error.message);
+        }
+      }, 4000);
     });
-  } catch (error) {
-    self.logger.error(logPrefix + ' Error in clipping detection: ' + error.message);
-  }
+  }, 300);
 
   setTimeout(function () {
 
@@ -2648,7 +2694,7 @@ FusionDsp.prototype.testclipping = function () {
       return 0;
     });
 
-    let offset = 3.8;
+    let offset = 1// 3.8;
     let arrreducedr = ((arr.toString().split(',')).pop());
     arrreduced = (+arrreducedr + offset).toFixed(2);
 
@@ -2689,7 +2735,7 @@ FusionDsp.prototype.testclipping = function () {
     self.refreshUI();
     self.createCamilladspfile();
 
-  }, 8110);
+  }, 9110);
   return defer.promise;
 
 };
@@ -4351,11 +4397,11 @@ FusionDsp.prototype.saveparameq = function (data, obj) {
     if (leftfilter != "None" || rightfilter != "None") {
       //we check if the file for filter still exists
       try {
-        const leftFilterPath = path.join(filterfolder, leftfilter);
-        const rightFilterPath = path.join(filterfolder, rightfilter);
+        const leftFilterSkippable = leftfilter.includes('$samplerate$');
+        const rightFilterSkippable = rightfilter.includes('$samplerate$');
 
-        const leftFilterExists = fs.existsSync(leftFilterPath);
-        const rightFilterExists = fs.existsSync(rightFilterPath);
+        const leftFilterExists = leftfilter === 'None' || leftFilterSkippable || fs.existsSync(path.join(filterfolder, leftfilter));
+        const rightFilterExists = rightfilter === 'None' || rightFilterSkippable || fs.existsSync(path.join(filterfolder, rightfilter));
         //   return new Promise((resolve, reject) => {
         if (leftFilterExists && rightFilterExists) {
           self.logger.info(logPrefix + ' Ok! Convolution files exist');
@@ -4409,6 +4455,14 @@ FusionDsp.prototype.saveparameq = function (data, obj) {
       self.config.set('leftfilter', leftfilter);
       self.config.set('rightfilter', rightfilter);
       let enableclipdetect = data['enableclipdetect'];
+      if (leftfilter.includes('$samplerate$') || rightfilter.includes('$samplerate$')) {
+        enableclipdetect = false;
+      }
+      /*
+      if (leftfilter === self.config.get('leftfilter') && rightfilter === self.config.get('rightfilter')) {
+        enableclipdetect = false;
+      }
+      */
       self.config.set('attenuationl', attenuationl);
       self.config.set('attenuationr', attenuationr);
       self.config.set('enableclipdetect', enableclipdetect);
@@ -5610,9 +5664,9 @@ FusionDsp.prototype.sendvolumelevel = function () {
     let loudnessGain
 
     let loudnessstrength = self.config.get('loudnessstrength')
-    loudnessstrength = [0, 1, 2].includes(loudnessstrength) ? loudnessstrength : 2
+    loudnessstrength = [0, 1, 2,3].includes(loudnessstrength) ? loudnessstrength : 2
 
-    const profiles = [0.5, 0.75, 1]
+    const profiles = [0.25,0.5, 0.75, 1]
     let profile = profiles[loudnessstrength]
 
     if (data.volume > loudnessLowThreshold && data.volume < loudnessVolumeThreshold) {
